@@ -14,19 +14,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusIndicator = document.getElementById('status-indicator');
     const connectionStatus = document.getElementById('connection-status');
     const micStatus = document.getElementById('mic-status');
+    const langBtn = document.getElementById('lang-btn');
+    const langDropdown = document.getElementById('lang-dropdown');
+    const currentLangIndicator = document.querySelector('.current-lang');
 
     // State variables
     let room = null;
     let isConnected = false;
     let isRecording = false;
+    let currentLanguage = 'en'; // Default language
 
     // Connect to LiveKit
     connectButton.addEventListener('click', async () => {
         updateStatus('connecting');
         
         try {
-            // Get the token from the server
-            const response = await fetch('/api/token');
+            // Get the token from the server with language parameter
+            const response = await fetch(`/api/token?lang=${currentLanguage}`);
             const data = await response.json();
             
             if (!data.success) {
@@ -93,6 +97,64 @@ document.addEventListener('DOMContentLoaded', function() {
             sendTextMessage();
         }
     });
+    
+    // Toggle language dropdown on click
+    langBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        langDropdown.classList.toggle('show');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!langBtn.contains(e.target) && !langDropdown.contains(e.target)) {
+            langDropdown.classList.remove('show');
+        }
+    });
+
+    // Language dropdown functionality
+    document.querySelectorAll('#lang-dropdown a').forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const newLang = e.target.getAttribute('data-lang');
+            
+            // Close the dropdown
+            langDropdown.classList.remove('show');
+            
+            if (newLang === currentLanguage) return;
+            
+            console.log(`Changing language from ${currentLanguage} to ${newLang}`);
+            currentLanguage = newLang;
+            
+            // Update the language indicator
+            currentLangIndicator.textContent = newLang.toUpperCase();
+            
+            // If connected, disconnect and reconnect to apply the new language
+            if (isConnected) {
+                // Show language change message
+                addMessage('System', `Changing language to ${getLangName(newLang)}...`, 'agent');
+                
+                // Disconnect
+                await disconnectFromRoom();
+                
+                // Reconnect after a short delay
+                setTimeout(() => {
+                    connectButton.click();
+                }, 1000);
+            }
+        });
+    });
+    
+    // Helper function to get language name
+    function getLangName(langCode) {
+        const langNames = {
+            'en': 'English',
+            'fa': 'فارسی',
+            'ar': 'العربية',
+            'fr': 'Français'
+        };
+        return langNames[langCode] || langCode;
+    }
 
     // Connect to LiveKit room
     async function connectToRoom(token, livekitUrl) {
@@ -451,4 +513,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize with disconnected status
     updateStatus('disconnected');
+    
+    // Initialize language indicator
+    currentLangIndicator.textContent = currentLanguage.toUpperCase();
 });

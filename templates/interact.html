@@ -32,9 +32,23 @@
                         <span id="status-indicator" class="status-indicator status-disconnected"></span>
                         <span id="connection-status">Disconnected</span>
                     </div>
-                    <a href="/logout" class="logout-btn" title="Logout">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
+                    <div class="header-controls">
+                        <div class="language-dropdown">
+                            <button class="lang-btn" id="lang-btn" title="Change Language">
+                                <i class="fas fa-globe"></i>
+                                <span class="current-lang">EN</span>
+                            </button>
+                            <div class="dropdown-content" id="lang-dropdown">
+                                <a href="#" data-lang="en">English</a>
+                                <a href="#" data-lang="fa">فارسی</a>
+                                <a href="#" data-lang="ar">العربية</a>
+                                <a href="#" data-lang="fr">Français</a>
+                            </div>
+                        </div>
+                        <a href="/logout" class="logout-btn" title="Logout">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    </div>
                 </div>
                 
                 <div class="glass-card-content">
