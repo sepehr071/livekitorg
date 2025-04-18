@@ -170,25 +170,24 @@ body, html {
 .form-input {
   width: 100%;
   padding: 0.85rem 0.75rem 0.85rem 2.5rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   color: var(--text-light);
   font-size: 1rem;
   letter-spacing: 0.5px;
   transition: all 0.3s ease;
-  backdrop-filter: blur(5px);
 }
 
 .form-input:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 2px 15px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 .form-input::placeholder {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* Error Messages */
