@@ -275,9 +275,12 @@ body, html {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   margin-bottom: 1rem;
   position: relative;
+  overflow-y: auto;
+  max-height: 50vh;
+  padding: 1rem 0.5rem;
 }
 
 .ai-speaking-indicator {
@@ -325,10 +328,10 @@ body, html {
 }
 
 .ai-response-text {
-  text-align: center;
+  text-align: left;
   color: var(--text-light);
-  font-size: 1.5rem;
-  max-width: 90%;
+  font-size: 1.25rem;
+  width: 100%;
   min-height: 40px;
   position: relative;
   animation: fadeIn 0.5s ease-out;
@@ -336,6 +339,10 @@ body, html {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 500;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+  padding: 0 0.5rem;
 }
 
 @keyframes fadeIn {
@@ -345,8 +352,9 @@ body, html {
 
 .ai-response-text::after {
   content: '|';
-  position: absolute;
-  right: -8px;
+  position: relative;
+  display: inline;
+  margin-left: 2px;
   animation: cursor-blink 1s infinite;
   -webkit-text-fill-color: var(--text-light);
 }
@@ -360,13 +368,20 @@ body, html {
 .user-input-display {
   margin-bottom: 1rem;
   min-height: 40px;
-  text-align: center;
+  max-height: 100px;
+  overflow-y: auto;
+  width: 100%;
+  padding: 0 0.5rem;
 }
 
 .latest-user-input {
   color: var(--text-light);
   font-size: 1rem;
   opacity: 0.8;
+  text-align: left;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
 }
 
 .latest-user-input .placeholder {

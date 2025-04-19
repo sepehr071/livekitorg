@@ -430,6 +430,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (latestUserInput) {
                 latestUserInput.innerHTML = `<p>${text}</p>`;
                 latestUserInput.classList.add('has-content');
+                
+                // Scroll the user input display to show all content
+                const userInputDisplay = document.querySelector('.user-input-display');
+                if (userInputDisplay) {
+                    userInputDisplay.scrollTop = userInputDisplay.scrollHeight;
+                }
             }
         } else if (type === 'agent') {
             // Show AI response with typing animation
@@ -452,6 +458,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (i < text.length) {
                         aiResponseText.innerHTML += text.charAt(i);
                         i++;
+                        
+                        // Scroll the wrapper to the bottom to show new content
+                        const wrapper = document.querySelector('.ai-response-wrapper');
+                        if (wrapper) {
+                            wrapper.scrollTop = wrapper.scrollHeight;
+                        }
+                        
                         setTimeout(typeWriter, speed);
                     } else {
                         // Typing finished
