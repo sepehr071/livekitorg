@@ -52,29 +52,23 @@
                 </div>
                 
                 <div class="glass-card-content">
-                    <!-- AI Response in the middle of the page -->
-                    <div class="ai-response-wrapper">
-                        <div class="ai-speaking-indicator">
-                            <span></span>
-                            <span></span>
-                            <span></span>
+                    <!-- New conversation-style display area -->
+                    <div class="conversation-container" id="conversation-container">
+                        <!-- Messages will be added here dynamically -->
+                        <!-- Each message will have a structure like: -->
+                        <!--
+                        <div class="message-bubble agent-message">
+                            <div class="speaker-label agent-label">
+                                <i class="fas fa-robot"></i> <span>Caila</span>
+                            </div>
+                            <div class="message-content">Message text here</div>
                         </div>
-                        <div id="ai-response-text" class="ai-response-text">
-                            <!-- AI responses will be inserted here with typing animation -->
-                        </div>
+                        -->
                     </div>
                     
-                    <!-- Hidden chat container for original functionality -->
+                    <!-- Hidden original chat container kept for compatibility -->
                     <div id="chat-container" class="chat-container" style="display: none;">
                         <!-- Original messages will be stored here but not displayed -->
-                    </div>
-                    
-                    <!-- User's latest input display -->
-                    <div class="user-input-display">
-                        <div id="latest-user-input" class="latest-user-input">
-                            <!-- Latest user input will be displayed here -->
-                            
-                        </div>
                     </div>
                     
                     <div class="voice-button-container">

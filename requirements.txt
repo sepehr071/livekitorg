@@ -5,4 +5,3 @@ Flask-WTF==1.1.1
 Werkzeug==2.2.3
 WTForms==3.0.1
 python-dotenv==1.0.0
-livekit-server-sdk==1.1.1

@@ -21,7 +21,6 @@ from livekit.agents.voice import Agent, AgentSession
 from dataclasses import dataclass, field
 from livekit.plugins import (
     openai,
-    cartesia,
     deepgram,
     silero
 )
@@ -470,9 +469,9 @@ class GeneralAna(Agent):
         # Configure optimized VAD parameters for better interruption handling
         vad_config = silero.VAD.load(
             min_speech_duration=0.05,      # Default: 0.05 - Minimum duration to detect speech
-            min_silence_duration=0.45,     # Default: 0.55 - Reduced for faster response
-            prefix_padding_duration=0.3,   # Default: 0.5 - Reduced padding for tighter turns
-            activation_threshold=0.42,     # Default: 0.5 - More sensitive to detect speech
+            min_silence_duration=0.40,     # Default: 0.55 - Reduced for faster response
+            prefix_padding_duration=0.2,   # Default: 0.5 - Reduced padding for tighter turns
+            activation_threshold=0.7,     # Default: 0.5 - More sensitive to detect speech
             max_buffered_speech=30.0       # Default: 60.0 - Reduced buffer size
         )
         
