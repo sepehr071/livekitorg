@@ -173,55 +173,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Helper function to show flash messages
+    // Helper function to show flash messages - simplified to just log to console
     function showFlashMessage(message, type = 'info') {
-        // Find or create flash messages container
-        let flashMessagesContainer = document.querySelector('.flash-messages');
-        if (!flashMessagesContainer) {
-            // Create container if it doesn't exist
-            const container = document.createElement('div');
-            container.className = 'flash-messages';
-            document.querySelector('.interact-page').appendChild(container);
-            flashMessagesContainer = container;
-        }
-        
-        // Create the message element
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `flash-message ${type}`;
-        
-        // Add content with message and close button
-        messageDiv.innerHTML = `
-            <span>${message}</span>
-            <button type="button" class="flash-close">&times;</button>
-        `;
-        
-        // Add click handler to close button
-        const closeButton = messageDiv.querySelector('.flash-close');
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                messageDiv.style.opacity = '0';
-                setTimeout(() => {
-                    if (messageDiv.parentNode) {
-                        messageDiv.remove();
-                    }
-                }, 300);
-            });
-        }
-        
-        // Add to container
-        flashMessagesContainer.appendChild(messageDiv);
-        
-        // Auto-remove after 3 seconds
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.style.opacity = '0';
-                setTimeout(() => {
-                    if (messageDiv.parentNode) {
-                        messageDiv.remove();
-                    }
-                }, 300);
-            }
-        }, 3500);
+        console.log(`[${type}] ${message}`);
+        // No visual flash messages as per user request
     }
     
     // Helper function to get language name
@@ -540,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return messagesToRemove.length > 0;
     }
     
-    // SIMPLIFIED: Display user transcriptions in the conversation
+    // SIMPLIFIED: Display user transcriptions in the user text display
     function displayUserTranscription(text, segmentId = null, isFinal = false) {
         // Safety check
         if (!text || text.trim() === '') return;
@@ -556,55 +511,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log(`USER MESSAGE: "${text}" (final=${isFinal})`);
         
-        // Normalize the text for content-based deduplication
-        const normalizedText = text.trim();
-        const contentKey = normalizedText.toLowerCase();
-        
-        // First check: Do we already have this exact content or very similar content?
-        const existingMessage = userMessagesByContent.get(contentKey);
-        
-        if (existingMessage && existingMessage.isConnected) {
-            // We already have this message, just update it
-            console.log('Updating existing user message with same content');
-            
-            // Update the content with latest version
-            const contentEl = existingMessage.querySelector('.message-content');
-            if (contentEl) {
-                contentEl.textContent = text;
-                
-                // If this is a final transcription, remove the "transcribing" marker
-                if (isFinal) {
-                    existingMessage.classList.remove('transcribing');
-                }
-            }
-            
-            return; // Skip creating duplicates
+        // Simply update the user text display
+        const userTextDisplay = document.getElementById('user-text-display');
+        if (userTextDisplay) {
+            userTextDisplay.textContent = text;
         }
         
-        // Create new message bubble
-        console.log('Creating new user message bubble');
-        const msgBubble = addMessageToConversation(text, false, false);
+        // Also add to chat history container (hidden but functional)
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message user-message transcription';
+        messageDiv.innerHTML = `
+            <strong>You (transcribed):</strong>
+            <p>${text}</p>
+            <small>${new Date().toLocaleTimeString()}</small>
+        `;
         
-        if (msgBubble) {
-            // Mark as transcribing if not final
-            if (!isFinal) {
-                msgBubble.classList.add('transcribing');
-            }
-            
-            // Store in our content registry for future deduplication
-            userMessagesByContent.set(contentKey, msgBubble);
-            
-            // Also add to chat history container (hidden but functional)
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message user-message transcription';
-            messageDiv.innerHTML = `
-                <strong>You (transcribed):</strong>
-                <p>${text}</p>
-                <small>${new Date().toLocaleTimeString()}</small>
-            `;
-            
-            chatContainer.appendChild(messageDiv);
-        }
+        chatContainer.appendChild(messageDiv);
     }
 
     // Set up event listeners for the LiveKit room
@@ -924,86 +846,69 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add a message to the conversation container
     function addMessageToConversation(text, isAgent, isStreaming = false) {
-        const conversationContainer = document.getElementById('conversation-container');
-        if (!conversationContainer) return;
-        
-        // Fade older messages when new ones come in
-        const existingMessages = conversationContainer.querySelectorAll('.message-bubble:not(.older)');
-        if (existingMessages.length > 3) {
-            Array.from(existingMessages).slice(0, -3).forEach(msg => {
-                msg.classList.add('older');
-            });
-        }
-        
         // Don't add empty messages
         if (!text || text.trim() === '') return;
         
-        // Check if we already have a streaming message from agent that we should update
-        if (isAgent && isStreaming) {
-            const existingStream = conversationContainer.querySelector('.message-bubble.streaming');
-            if (existingStream) {
-                const contentElement = existingStream.querySelector('.message-content');
-                if (contentElement) {
-                    contentElement.innerText = text;
-                    return existingStream;
+        if (isAgent) {
+            // Handle AI message
+            const conversationContainer = document.getElementById('conversation-container');
+            if (!conversationContainer) return;
+            
+            // Check if we already have a streaming message that we should update
+            if (isStreaming) {
+                const existingStream = conversationContainer.querySelector('.ai-message.streaming');
+                if (existingStream) {
+                    const contentElement = existingStream.querySelector('.ai-message-content');
+                    if (contentElement) {
+                        contentElement.innerText = text;
+                        return existingStream;
+                    }
                 }
             }
-        }
-        
-        // Otherwise, create a new message bubble
-        const messageBubble = document.createElement('div');
-        messageBubble.className = `message-bubble ${isAgent ? 'agent-message' : 'user-message'}`;
-        
-        if (isAgent && isStreaming) {
-            messageBubble.classList.add('streaming');
-        }
-        
-        let messageContent = '';
-        
-        if (isAgent) {
-            // Add agent label and speaking indicator
-            messageContent += `
-                <div class="speaker-label agent-label">
-                    <i class="fas fa-robot"></i>
-                    <span>Caila</span>
-                </div>
-            `;
+            
+            // Clear previous messages - we only show the latest AI response
+            conversationContainer.innerHTML = '';
+            
+            // Create a new AI message
+            const aiMessage = document.createElement('div');
+            aiMessage.className = 'ai-message';
             
             if (isStreaming) {
-                messageContent += `
-                    <div class="ai-speaking-indicator active">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                `;
+                aiMessage.classList.add('streaming');
             }
+            
+            // Add the message content
+            aiMessage.innerHTML = `<div class="ai-message-content">${text}</div>`;
+            
+            conversationContainer.appendChild(aiMessage);
+            
+            // Scroll to the bottom
+            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+            
+            return aiMessage;
         } else {
-            // Add user label
-            messageContent += `
-                <div class="speaker-label user-label">
-                    <i class="fas fa-user"></i>
-                    <span>You</span>
-                </div>
-            `;
+            // Handle user message - just update the user text display
+            const userTextDisplay = document.getElementById('user-text-display');
+            if (userTextDisplay) {
+                userTextDisplay.textContent = text;
+            }
+            
+            return null; // No element to return for user messages
         }
-        
-        // Add the message content div
-        messageContent += `<div class="message-content ${isStreaming ? 'streaming' : ''}">${text}</div>`;
-        
-        messageBubble.innerHTML = messageContent;
-        conversationContainer.appendChild(messageBubble);
-        
-        // Scroll to the bottom
-        conversationContainer.scrollTop = conversationContainer.scrollHeight;
-        
-        return messageBubble;
     }
     
-    // Display user message in the conversation
+    // Display user message in the user text display
     function displayUserMessage(text) {
         if (!text || text.trim() === '') return;
         console.log('Displaying user message:', text);
+        
+        // Update the user text display
+        const userTextDisplay = document.getElementById('user-text-display');
+        if (userTextDisplay) {
+            userTextDisplay.textContent = text;
+        }
+        
+        // Also add to conversation for compatibility
         addMessageToConversation(text, false);
     }
     
@@ -1024,49 +929,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log(`AGENT MESSAGE [${source}]: "${text}" (isTranscription=${isTranscription})`);
         
-        // Normalize text for content-based deduplication
-        const normalizedText = text.trim();
-        const contentKey = normalizedText.toLowerCase();
-        
-        // Debug agent message content
-        console.log(`AGENT MESSAGE CONTENT: ${contentKey.substring(0, 30)}...`);
-        
-        // Check if we already have this exact content
-        const existingMessage = agentMessagesByContent.get(contentKey);
-        
-        if (existingMessage && existingMessage.isConnected) {
-            // We already have this message, just update it
-            console.log(`DEDUP: Found existing message with key "${contentKey.substring(0, 30)}..." (source=${source})`);
-            
-            // Update the content with latest version
-            const contentEl = existingMessage.querySelector('.message-content');
-            if (contentEl) {
-                contentEl.textContent = text;
-            }
-            
-            return; // Skip creating duplicates
-        } else if (existingMessage) {
-            console.log(`DEDUP FAILED: Message exists but not connected (source=${source})`);
-        } else {
-            console.log(`DEDUP: No existing message found for "${contentKey.substring(0, 30)}..." (source=${source})`);
-        }
-        
         try {
-            // Create a new agent message
-            console.log("Creating new agent message bubble");
-            const messageBubble = addMessageToConversation(text, true, isTranscription);
+            // Create a new agent message - we don't need deduplication since we only show the latest message
+            console.log("Creating new agent message");
+            const aiMessage = addMessageToConversation(text, true, isTranscription);
             
-            if (!messageBubble) {
-                console.error("Failed to create message bubble");
+            if (!aiMessage) {
+                console.error("Failed to create AI message");
                 return;
             }
             
-            // Store in our registry for future deduplication
-            agentMessagesByContent.set(contentKey, messageBubble);
-            currentStreamingMessage = messageBubble;
-            
-            // Flash notification when agent responds
-            showFlashMessage('Agent is speaking...', 'info');
+            // Store for reference
+            currentStreamingMessage = aiMessage;
             
             // Start a new streaming message
             streamingText = text;
@@ -1079,7 +953,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Start the streaming with a slight delay to ensure DOM is ready
             setTimeout(() => {
-                streamText(messageBubble, text);
+                streamText(aiMessage, text);
             }, 50);
             
         } catch (error) {
@@ -1090,16 +964,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Simpler streaming function that just focuses on the text animation
-    function streamText(messageBubble, text) {
-        if (!messageBubble || !messageBubble.isConnected) {
-            console.error("Message bubble not available for streaming");
+    function streamText(aiMessage, text) {
+        if (!aiMessage || !aiMessage.isConnected) {
+            console.error("AI message not available for streaming");
             return;
         }
         
         // Find the content element
-        const contentElement = messageBubble.querySelector('.message-content');
+        const contentElement = aiMessage.querySelector('.ai-message-content');
         if (!contentElement) {
-            console.error("Content element not found in message bubble");
+            console.error("Content element not found in AI message");
             return;
         }
         
@@ -1110,8 +984,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let index = 0;
         
         function addNextChar() {
-            if (!messageBubble.isConnected) {
-                console.error("Message bubble disconnected during streaming");
+            if (!aiMessage.isConnected) {
+                console.error("AI message disconnected during streaming");
                 return;
             }
             
@@ -1145,16 +1019,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(addNextChar, delay);
             } else {
                 // Streaming complete - remove indicators
-                messageBubble.classList.remove('streaming');
-                
-                const indicator = messageBubble.querySelector('.ai-speaking-indicator');
-                if (indicator) {
-                    indicator.classList.remove('active');
-                }
-                
-                if (contentElement) {
-                    contentElement.classList.remove('streaming');
-                }
+                aiMessage.classList.remove('streaming');
             }
         }
         

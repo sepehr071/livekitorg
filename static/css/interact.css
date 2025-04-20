@@ -270,110 +270,81 @@ body, html {
     pointer-events: none;
 }
 
-/* Conversation Container - New chat-like UI */
-.conversation-container {
+/* User text display - simple text above voice button */
+.user-text-display {
+    width: 100%;
+    min-height: 40px;
+    max-height: 80px;
+    overflow-y: auto;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 1rem;
+    font-weight: 400;
+    opacity: 0.85;
+}
+
+/* AI response container - centered in the middle */
+.ai-response-container {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
+    justify-content: center;
     overflow-y: auto;
-    max-height: calc(var(--card-height) - 160px);
+    max-height: calc(var(--card-height) - 220px);
     padding: 1rem 0.5rem;
-    gap: 1rem;
+    margin-bottom: 1rem;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-    margin-bottom: 0.5rem;
     scroll-behavior: smooth;
 }
 
-.conversation-container::-webkit-scrollbar {
+.ai-response-container::-webkit-scrollbar {
     width: 6px;
 }
 
-.conversation-container::-webkit-scrollbar-track {
+.ai-response-container::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.conversation-container::-webkit-scrollbar-thumb {
+.ai-response-container::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.2);
     border-radius: 3px;
 }
 
-/* Message bubbles */
-.message-bubble {
-    display: flex;
-    flex-direction: column;
-    max-width: 90%;
-    padding: 0.75rem;
-    border-radius: 16px;
+/* AI message - simple centered text */
+.ai-message {
+    width: 100%;
+    padding: 1rem;
     margin-bottom: 0.5rem;
-    animation: fadeIn 0.3s ease-out;
-    position: relative;
-    transition: opacity 0.5s ease;
+    animation: fadeIn 0.8s ease-out;
+    text-align: center;
 }
 
-.message-bubble.user-message {
-    align-self: flex-end;
-    background-color: rgba(99, 102, 241, 0.15);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    margin-left: auto;
-}
-
-.message-bubble.agent-message {
-    align-self: flex-start;
-    background-color: rgba(168, 85, 247, 0.15);
-    border: 1px solid rgba(168, 85, 247, 0.2);
-    margin-right: auto;
-}
-
-.message-bubble.streaming {
-    border: 1px dashed rgba(168, 85, 247, 0.4);
-    box-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
-    animation: pulse-border 2s infinite;
-}
-
-@keyframes pulse-border {
-    0% { box-shadow: 0 0 8px rgba(168, 85, 247, 0.4); }
-    50% { box-shadow: 0 0 12px rgba(168, 85, 247, 0.8); }
-    100% { box-shadow: 0 0 8px rgba(168, 85, 247, 0.4); }
-}
-
-/* Style for in-progress transcriptions */
-.message-bubble.transcribing {
-    border: 1px dashed rgba(99, 102, 241, 0.4);
-    box-shadow: 0 0 6px rgba(99, 102, 241, 0.3);
-    animation: pulse-transcription 2s infinite;
-}
-
-@keyframes pulse-transcription {
-    0% { box-shadow: 0 0 6px rgba(99, 102, 241, 0.2); }
-    50% { box-shadow: 0 0 10px rgba(99, 102, 241, 0.6); }
-    100% { box-shadow: 0 0 6px rgba(99, 102, 241, 0.2); }
-}
-
-.message-bubble.older {
-    opacity: 0.6;
-}
-
-.message-content {
+.ai-message-content {
     color: var(--text-light);
-    font-size: 1rem;
-    line-height: 1.5;
+    font-size: 1.25rem;
+    line-height: 1.7;
     overflow-wrap: break-word;
     word-wrap: break-word;
     hyphens: auto;
-    margin-top: 0.5rem;
-}
-
-.agent-message .message-content {
     background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 500;
 }
 
-.user-message .message-content {
-    font-weight: 400;
+.ai-message.streaming .ai-message-content::after {
+    content: '|';
+    display: inline-block;
+    opacity: 1;
+    animation: cursor-blink 1s infinite;
+    -webkit-text-fill-color: var(--text-light);
+    margin-left: 2px;
+    font-weight: bold;
+    vertical-align: middle;
 }
 
 /* Streaming cursor effect for agent messages */
@@ -390,40 +361,7 @@ body, html {
     color: var(--accent-color);
 }
 
-/* Speaking indicator in message bubble */
-.message-bubble .ai-speaking-indicator {
-    align-self: flex-start;
-    margin-bottom: 5px;
-    height: 8px;
-}
-
-/* Speaker Labels */
-.speaker-label {
-    display: flex;
-    align-items: center;
-    font-size: 0.85rem;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 12px;
-    width: fit-content;
-}
-
-.speaker-label i {
-    margin-right: 0.5rem;
-}
-
-.user-label {
-    color: var(--primary-light);
-    background-color: rgba(99, 102, 241, 0.1);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-}
-
-.agent-label {
-    color: var(--secondary-color);
-    background-color: rgba(168, 85, 247, 0.1);
-    border: 1px solid rgba(168, 85, 247, 0.2);
-}
+/* Remove speaker labels and speaking indicators */
 
 /* AI Response in the middle */
 .ai-response-wrapper {
@@ -521,7 +459,7 @@ body, html {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
