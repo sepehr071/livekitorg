@@ -4,3 +4,4 @@ __pycache__/
 .env
 instance/app.db
 .env
+instance/app.db
