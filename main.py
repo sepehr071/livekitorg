@@ -477,10 +477,10 @@ class GeneralAna(Agent):
         super().__init__(
             instructions=GENERAL_ANA_PROMPT,
             stt=deepgram.STT(model="nova-3-general", language="multi"),
-            llm=google.LLM(
-                model="gemini-2.5-flash-preview-04-17",
+            llm=openai.LLM(
+                model="gpt-4.1-mini-2025-04-14",
                 temperature=0.5,
-                api_key=GOOGLE_API_KEY
+                # api_key=GOOGLE_API_KEY
             ),
             tts=openai.TTS(model="gpt-4o-mini-tts", voice="alloy", instructions="Maintain a confident, warm, and professional tone, keeping responses concise and business-focused, emphasizing solutions and ROI"),
             vad=vad_config
@@ -620,10 +620,10 @@ class ProductAna(Agent):
         super().__init__(
             instructions=instructions,
             stt=deepgram.STT(model="nova-3-general", language="multi"),
-            llm=google.LLM(
-                model="gemini-2.5-flash-preview-04-17",
+            llm=openai.LLM(
+                model="gpt-4.1-mini-2025-04-14",
                 temperature=0.2,
-                api_key=GOOGLE_API_KEY
+                # api_key=GOOGLE_API_KEY
                  
             ),
             tts=openai.TTS(model="gpt-4o-mini-tts", voice="alloy",instructions="Maintain a confident, warm, and professional tone, keeping responses concise and business-focused, emphasizing solutions and ROI"),
