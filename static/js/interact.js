@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let isConnected = false;
     let isRecording = false;
     let currentLanguage = 'en'; // Default language
+    let lastUserInput = ''; // Store the last user input
 
     // Connect button handler - only used internally now
     connectButton.addEventListener('click', async () => {
@@ -390,12 +391,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const agentTextLower = agentText.toLowerCase().trim();
         const messagesToRemove = [];
         
-        // IMPROVED DETECTION: Check each user message with more flexible matching
+        // LESS AGGRESSIVE DETECTION: Only remove messages that are very clearly part of the agent message
         userMessagesByContent.forEach((element, contentKey) => {
-            // If this user message appears to be the start of the agent message
-            // OR if the agent message starts with this user message
-            if ((agentTextLower.startsWith(contentKey) && contentKey.length > 5) ||
-                (contentKey.startsWith(agentTextLower.substring(0, 10)) && agentTextLower.length > 10)) {
+            // Only if this user message is EXACTLY the start of the agent message
+            // AND it's a substantial part (more than 15 characters)
+            if (agentTextLower.startsWith(contentKey) && contentKey.length > 15) {
                 console.log(`Found misclassified user message: "${contentKey.substring(0, 30)}..."`);
                 messagesToRemove.push({element, contentKey});
             }
@@ -421,15 +421,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return messagesToRemove.length > 0;
     }
     
-    // Function to aggressively clean up all short user messages
+    // Function to clean up all short user messages - less aggressive now
     // This is useful when we detect a speaker change to agent
     function cleanupAllShortUserMessages() {
         const messagesToRemove = [];
         
         // Check for short messages that might be misclassified
         userMessagesByContent.forEach((element, contentKey) => {
-            // Short messages under 15 chars are likely fragments
-            if (contentKey.length < 15) {
+            // Only remove very short messages under 5 chars that are likely fragments
+            if (contentKey.length < 5) {
                 console.log(`Found potentially misclassified short message: "${contentKey}"`);
                 messagesToRemove.push({element, contentKey});
             }
@@ -458,63 +458,48 @@ document.addEventListener('DOMContentLoaded', function() {
         return messagesToRemove.length > 0;
     }
     
-    // Function to aggressively clean up all short user messages
-    // This is useful when we detect a speaker change to agent
-    function cleanupAllShortUserMessages() {
-        const messagesToRemove = [];
-        
-        // Check for short messages that might be misclassified
-        userMessagesByContent.forEach((element, contentKey) => {
-            // Short messages under 15 chars are likely fragments
-            if (contentKey.length < 15) {
-                console.log(`Found potentially misclassified short message: "${contentKey}"`);
-                messagesToRemove.push({element, contentKey});
-            }
-        });
-        
-        // Remove them all
-        if (messagesToRemove.length > 0) {
-            console.log(`Cleaning up ${messagesToRemove.length} potentially misclassified user messages`);
-            
-            messagesToRemove.forEach(({element, contentKey}) => {
-                // Remove the element from DOM with animation
-                if (element && element.isConnected) {
-                    element.classList.add('fade-out');
-                    setTimeout(() => {
-                        if (element.isConnected) {
-                            element.remove();
-                        }
-                    }, 300);
-                }
-                
-                // Remove from tracking map
-                userMessagesByContent.delete(contentKey);
-            });
-        }
-        
-        return messagesToRemove.length > 0;
-    }
+    // Remove duplicate function (already defined above)
     
-    // SIMPLIFIED: Display user transcriptions in the user text display
+    // IMPROVED: Display user transcriptions in the user text display
     function displayUserTranscription(text, segmentId = null, isFinal = false) {
         // Safety check
         if (!text || text.trim() === '') return;
         
-        // Check if this looks like it might be an agent message
+        // More comprehensive check for agent messages
         const lowerText = text.toLowerCase();
-        if (lowerText.includes("i'm ana") ||
-            lowerText.includes("sales professional") ||
-            lowerText.includes("assist you") && lowerText.length > 30) {
+        const agentPhrases = [
+            "i'm ana", "sales professional", "assist you", "help you",
+            "i can help", "i'd be happy", "please let me know",
+            "is there anything", "would you like", "can i assist"
+        ];
+        
+        // Check if this contains any agent phrases and is longer than a typical user message
+        if (agentPhrases.some(phrase => lowerText.includes(phrase)) && lowerText.length > 25) {
             console.log(`Skipping likely agent message incorrectly classified as user: "${text}"`);
             return;
         }
         
         console.log(`USER MESSAGE: "${text}" (final=${isFinal})`);
         
-        // Simply update the user text display
+        // Store the normalized content for deduplication
+        const normalizedContent = lowerText.trim();
+        
+        // Add to user message tracking map
+        userMessagesByContent.set(normalizedContent, null); // We don't need to track the element
+        
+        // Update the user text display
         const userTextDisplay = document.getElementById('user-text-display');
         if (userTextDisplay) {
             userTextDisplay.textContent = text;
+            
+            // Store reference to this element
+            userMessagesByContent.set(normalizedContent, userTextDisplay);
+            
+            // Save this as the last user input (only if it's a final transcription or substantial)
+            if (isFinal || text.length > 15) {
+                lastUserInput = text;
+                console.log(`Saved last user input: "${lastUserInput}"`);
+            }
         }
         
         // Also add to chat history container (hidden but functional)
@@ -583,105 +568,76 @@ document.addEventListener('DOMContentLoaded', function() {
                     rawSegment: segment
                 });
                 
-                // Track current speaker ID for conversation context
-                const currentSpeakerId = segment.participantId || segment.senderIdentity || 'unknown';
+                // IMPROVED CLASSIFICATION: Prioritize identity-based classification
+                // This is the most reliable method
+                const isIdentityAgent = segment.senderIdentity &&
+                                       segment.senderIdentity.startsWith('agent');
                 
-                // If this is a new speaker or we don't have context yet
-                if (currentSpeakerId !== lastSpeakerId) {
-                    // Reset context for new speaker
-                    partialMessageFragments = [];
-                    lastSpeakerId = currentSpeakerId;
+                // Only use content-based classification as a fallback
+                let isAgent = isIdentityAgent;
+                
+                // If we couldn't determine from identity, use content analysis
+                if (!isIdentityAgent && segment.text.length > 10) {
+                    // Track current speaker ID for conversation context
+                    const currentSpeakerId = segment.participantId || segment.senderIdentity || 'unknown';
+                    
+                    // If this is a new speaker or we don't have context yet
+                    if (currentSpeakerId !== lastSpeakerId) {
+                        // Reset context for new speaker
+                        partialMessageFragments = [];
+                        lastSpeakerId = currentSpeakerId;
+                    }
+                    
+                    // Add this fragment to our contextual history
+                    partialMessageFragments.push(segment.text);
+                    
+                    // Combine all fragments for more accurate classification
+                    const fullContext = partialMessageFragments.join(" ");
+                    const textContent = fullContext.toLowerCase();
+                    
+                    // ENHANCED AGENT DETECTION - More comprehensive patterns
+                    const agentPhrases = [
+                        "i'm ana", "sales professional", "help you find", "barcode scanner",
+                        "handheld computer", "ruggedized", "optimize your", "workflow",
+                        "data capture", "operations", "pain point", "ready to help",
+                        "what's the main", "assist", "support", "i can help",
+                        "i'd be happy", "please let me know", "is there anything",
+                        "would you like", "can i assist"
+                    ];
+                    
+                    // Check if this contains multiple agent phrases or is a longer message
+                    const matchCount = agentPhrases.filter(phrase => textContent.includes(phrase)).length;
+                    const isContentFromAgent = (matchCount >= 1 && textContent.length > 30) ||
+                                              (matchCount >= 2);
+                    
+                    // Look at active speakers to help with classification
+                    const isActiveSpeakerAgent = room.activeSpeakers.some(
+                        speaker => speaker.identity && speaker.identity.startsWith('agent')
+                    );
+                    
+                    // Combined check - use any method that works
+                    isAgent = isContentFromAgent || (isActiveSpeakerAgent && segment.text.length > 20);
                 }
                 
-                // Add this fragment to our contextual history
-                partialMessageFragments.push(segment.text);
-                
-                // Combine all fragments for more accurate classification
-                const fullContext = partialMessageFragments.join(" ");
-                const textContent = fullContext.toLowerCase();
-                
-                // ENHANCED AGENT DETECTION - Adding more patterns common in agent responses
-                const isContentFromAgent =
-                    textContent.includes("i'm ana") ||
-                    textContent.includes("sales professional") ||
-                    textContent.includes("help you find") ||
-                    textContent.includes("barcode scanner") ||
-                    textContent.includes("handheld computer") ||
-                    textContent.includes("ruggedized") ||
-                    textContent.includes("optimize your") ||
-                    textContent.includes("workflow") ||
-                    textContent.includes("data capture") ||
-                    textContent.includes("operations") ||
-                    textContent.includes("pain point") ||
-                    (textContent.includes("ready to help") && textContent.length > 15) ||
-                    (textContent.includes("what's the main") && textContent.length > 15) ||
-                    (textContent.length > 30 && (
-                        textContent.includes("assist") ||
-                        textContent.includes("help") ||
-                        textContent.includes("support")
-                    ));
-                
-                // Standard identity check
-                const isIdentityAgent = segment.senderIdentity &&
-                                        segment.senderIdentity.startsWith('agent');
-                
-                // Look at active speakers to help with classification
-                const isActiveSpeakerAgent = room.activeSpeakers.some(
-                    speaker => speaker.identity && speaker.identity.startsWith('agent')
-                );
-                
-                // Combined check - use any method that works
-                const isAgent = isIdentityAgent || isContentFromAgent ||
-                               (isActiveSpeakerAgent && segment.text.length > 10);
-                
-                console.log(`Message classification: isIdentityAgent=${isIdentityAgent}, isContentFromAgent=${isContentFromAgent}, isActiveSpeakerAgent=${isActiveSpeakerAgent}, final decision: isAgent=${isAgent}`);
+                console.log(`Message classification: isIdentityAgent=${isIdentityAgent}, final decision: isAgent=${isAgent}`);
                 
                 // Store classification for this conversation turn
                 if (lastClassification !== (isAgent ? 'agent' : 'user')) {
                     lastClassification = isAgent ? 'agent' : 'user';
                     console.log(`Classification changed to: ${lastClassification}`);
-                    
-                    // When speaker changes to agent, clean up any short user messages
-                    if (lastClassification === 'agent') {
-                        cleanupAllShortUserMessages();
-                    }
                 }
                 
-                // CRITICAL FIX: Handle a more complex classification flow
+                // IMPROVED HANDLING: Clear separation between agent and user messages
                 if (isAgent) {
-                    // For agent messages
-                    if (!segment.final) {
+                    // For agent messages - only display final transcriptions
+                    if (segment.final) {
+                        console.log("Displaying AGENT message from transcription");
+                        displayAgentMessage(segment.text, true);
+                    } else {
                         console.log("Skipping non-final agent transcription");
-                        
-                        // But still attempt to clean up any misclassified messages
-                        if (segment.text.length > 20) {
-                            cleanupMisclassifiedMessages(segment.text, true);
-                        }
-                        continue;
                     }
-                    
-                    // First, clean up any misclassified messages
-                    cleanupMisclassifiedMessages(segment.text, true);
-                    
-                    // Then display the agent message
-                    console.log("Displaying AGENT message from transcription");
-                    displayAgentMessage(segment.text, true);
                 } else {
-                    // For user messages
-                    
-                    // If we have a very short message and agent was speaking recently,
-                    // be cautious with classification
-                    if (segment.text.length < 10 && lastClassification === 'agent') {
-                        console.log("Short message after agent was speaking - double checking classification");
-                        
-                        // Wait for more context before displaying as user message
-                        if (!segment.final) {
-                            console.log("Skipping short non-final message that might be misclassified");
-                            continue;
-                        }
-                    }
-                    
-                    // User transcription with content-based deduplication
+                    // For user messages - display all transcriptions
                     console.log("Displaying USER message from transcription");
                     displayUserTranscription(segment.text, null, segment.final === true);
                 }
@@ -902,10 +858,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text || text.trim() === '') return;
         console.log('Displaying user message:', text);
         
+        // Store the normalized content for deduplication
+        const normalizedContent = text.toLowerCase().trim();
+        
+        // Add to user message tracking map
+        userMessagesByContent.set(normalizedContent, null);
+        
         // Update the user text display
         const userTextDisplay = document.getElementById('user-text-display');
         if (userTextDisplay) {
             userTextDisplay.textContent = text;
+            
+            // Store reference to this element
+            userMessagesByContent.set(normalizedContent, userTextDisplay);
+            
+            // Save this as the last user input
+            lastUserInput = text;
+            console.log(`Saved last user input: "${lastUserInput}"`);
         }
         
         // Also add to conversation for compatibility
@@ -918,7 +887,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let streamingText = '';
     let streamingIndex = 0;
     
-    // Display agent message with real-time streaming effect
+    // Display agent message without streaming effect
     function displayAgentMessage(text, isTranscription) {
         // Add source tracking for debugging
         const callStack = new Error().stack;
@@ -930,9 +899,22 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`AGENT MESSAGE [${source}]: "${text}" (isTranscription=${isTranscription})`);
         
         try {
+            // Restore the last user input if the user text display is empty or has been cleared
+            const userTextDisplay = document.getElementById('user-text-display');
+            if (userTextDisplay &&
+                (userTextDisplay.textContent.trim() === '' ||
+                 userTextDisplay.textContent.trim().length < 5)) {
+                
+                // Only restore if we have a saved user input
+                if (lastUserInput && lastUserInput.trim() !== '') {
+                    console.log(`Restoring last user input: "${lastUserInput}"`);
+                    userTextDisplay.textContent = lastUserInput;
+                }
+            }
+            
             // Create a new agent message - we don't need deduplication since we only show the latest message
             console.log("Creating new agent message");
-            const aiMessage = addMessageToConversation(text, true, isTranscription);
+            const aiMessage = addMessageToConversation(text, true, false);
             
             if (!aiMessage) {
                 console.error("Failed to create AI message");
@@ -942,19 +924,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Store for reference
             currentStreamingMessage = aiMessage;
             
-            // Start a new streaming message
-            streamingText = text;
-            streamingIndex = 0;
-            
-            // Clear any existing interval to prevent multiple streams
-            if (streamInterval) {
-                clearInterval(streamInterval);
-            }
-            
-            // Start the streaming with a slight delay to ensure DOM is ready
-            setTimeout(() => {
-                streamText(aiMessage, text);
-            }, 50);
+            // Display text immediately
+            streamText(aiMessage, text);
             
         } catch (error) {
             console.error("Error creating agent message:", error);
@@ -963,7 +934,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Simpler streaming function that just focuses on the text animation
+    // Display text immediately without animation
     function streamText(aiMessage, text) {
         if (!aiMessage || !aiMessage.isConnected) {
             console.error("AI message not available for streaming");
@@ -977,54 +948,17 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Start with empty text
-        contentElement.textContent = '';
+        // Display the full text immediately
+        contentElement.textContent = text;
         
-        // Set up character-by-character animation
-        let index = 0;
+        // Remove streaming class
+        aiMessage.classList.remove('streaming');
         
-        function addNextChar() {
-            if (!aiMessage.isConnected) {
-                console.error("AI message disconnected during streaming");
-                return;
-            }
-            
-            if (index < text.length) {
-                // Add one character at a time
-                contentElement.textContent = text.substring(0, index + 1);
-                index++;
-                
-                // Scroll conversation to bottom
-                const conversationContainer = document.getElementById('conversation-container');
-                if (conversationContainer) {
-                    conversationContainer.scrollTop = conversationContainer.scrollHeight;
-                }
-                
-                // Calculate a random delay for the next character
-                let delay = 20; // Base speed
-                
-                // Previous character (just added)
-                const prevChar = text.charAt(index - 1);
-                
-                // Add variable delays based on punctuation
-                if ('.!?'.includes(prevChar)) {
-                    delay = 200 + Math.random() * 100; // Longer pause after sentences
-                } else if (',;:)('.includes(prevChar)) {
-                    delay = 100 + Math.random() * 50; // Medium pause after commas, etc.
-                } else {
-                    delay = 20 + Math.random() * 20; // Random typing speed variation
-                }
-                
-                // Schedule next character with variable delay
-                setTimeout(addNextChar, delay);
-            } else {
-                // Streaming complete - remove indicators
-                aiMessage.classList.remove('streaming');
-            }
+        // Scroll conversation to bottom
+        const conversationContainer = document.getElementById('conversation-container');
+        if (conversationContainer) {
+            conversationContainer.scrollTop = conversationContainer.scrollHeight;
         }
-        
-        // Start the streaming
-        addNextChar();
     }
     
     // Removed finishStreaming function - now handled directly in streamText

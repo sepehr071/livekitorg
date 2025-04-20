@@ -277,12 +277,15 @@ body, html {
     max-height: 80px;
     overflow-y: auto;
     margin-bottom: 0.5rem;
-    padding: 0.5rem;
+    padding: 0.75rem;
     text-align: center;
     color: var(--text-light);
     font-size: 1rem;
     font-weight: 400;
     opacity: 0.85;
+    background-color: rgba(99, 102, 241, 0.1);
+    border-radius: 12px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 /* AI response container - centered in the middle */
@@ -299,6 +302,9 @@ body, html {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
     scroll-behavior: smooth;
+    background-color: rgba(168, 85, 247, 0.05);
+    border-radius: 16px;
+    border: 1px solid rgba(168, 85, 247, 0.1);
 }
 
 .ai-response-container::-webkit-scrollbar {
@@ -319,7 +325,7 @@ body, html {
     width: 100%;
     padding: 1rem;
     margin-bottom: 0.5rem;
-    animation: fadeIn 0.8s ease-out;
+    animation: fadeIn 0.3s ease-out; /* Faster animation */
     text-align: center;
 }
 
@@ -336,30 +342,7 @@ body, html {
     font-weight: 500;
 }
 
-.ai-message.streaming .ai-message-content::after {
-    content: '|';
-    display: inline-block;
-    opacity: 1;
-    animation: cursor-blink 1s infinite;
-    -webkit-text-fill-color: var(--text-light);
-    margin-left: 2px;
-    font-weight: bold;
-    vertical-align: middle;
-}
-
-/* Streaming cursor effect for agent messages */
-.message-content.streaming::after {
-    content: '|';
-    display: inline-block;
-    opacity: 1;
-    animation: cursor-blink 1s infinite;
-    -webkit-text-fill-color: var(--text-light);
-    margin-left: 2px;
-    font-weight: bold;
-    font-size: 1.2em;
-    vertical-align: middle;
-    color: var(--accent-color);
-}
+/* Remove streaming cursor effects */
 
 /* Remove speaker labels and speaking indicators */
 
@@ -459,23 +442,11 @@ body, html {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.ai-response-text::after {
-  content: '|';
-  position: relative;
-  display: inline;
-  margin-left: 2px;
-  animation: cursor-blink 1s infinite;
-  -webkit-text-fill-color: var(--text-light);
-}
-
-@keyframes cursor-blink {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
+/* Remove blinking cursor */
 
 /* User Input Display - Simplified */
 .user-input-display {
