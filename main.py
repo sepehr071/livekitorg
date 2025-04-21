@@ -25,8 +25,44 @@ from livekit.plugins import (
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-# Import our utils module
-from utils import load_prompt, load_product_info
+# Import utils or define utility functions if needed
+try:
+    from utils import load_prompt, load_product_info
+except ImportError:
+    # Define utility functions directly if module is not available
+    import yaml
+    import os
+    
+    def load_prompt(prompt_file):
+        """Load a prompt from a YAML file or return default if file not found."""
+        try:
+            with open(f"prompts/{prompt_file}", "r", encoding="utf-8") as file:
+                return yaml.safe_load(file)
+        except (FileNotFoundError, yaml.YAMLError) as e:
+            logging.error(f"Error loading prompt from {prompt_file}: {e}")
+            # Return a default prompt if file cannot be loaded
+            if "general" in prompt_file:
+                return "You are Caila, a helpful sales assistant for ruggedized mobile devices."
+            elif "product" in prompt_file:
+                return "You are Caila, a product specialist for ruggedized mobile devices."
+            return "You are Caila, a helpful assistant."
+    
+    def load_product_info():
+        """Load the product information from the markdown file."""
+        try:
+            # First try to load from final.md (as in testtt.py)
+            if os.path.exists("final.md"):
+                logging.info("Loading product information from final.md")
+                with open("final.md", "r", encoding="utf-8") as file:
+                    return file.read()
+            
+            # Fall back to product-info.md if final.md doesn't exist
+            logging.info("Loading product information from product-info.md")
+            with open("product-info.md", "r", encoding="utf-8") as file:
+                return file.read()
+        except Exception as e:
+            logging.error(f"Error loading product information: {e}")
+            return "Product information not available."
 
 # Setup logging
 logger = logging.getLogger("dual-agent")
@@ -42,11 +78,22 @@ class UserData:
     previous_agent: Optional[Agent] = None
     last_query: str = ""
     email_address: Optional[str] = None
+    last_transfer_time: float = 0.0  # Timestamp of last transfer between agents
+    cooldown_period: float = 5.0     # Seconds to wait before allowing another transfer
+    initial_greeting_shown: bool = False  # Track if initial greeting has been shown
     
     def summarize(self) -> str:
         """Summarize user data for context passing."""
         return f"Last query: {self.last_query}" + \
                (f", Email: {self.email_address}" if self.email_address else "")
+               
+    def can_transfer(self, current_time: float) -> bool:
+        """Check if enough time has passed since the last transfer."""
+        return (current_time - self.last_transfer_time) >= self.cooldown_period
+    
+    def update_transfer_time(self, current_time: float) -> None:
+        """Update the last transfer timestamp."""
+        self.last_transfer_time = current_time
 
 
 class BaseAgent(Agent):
@@ -74,7 +121,7 @@ class BaseAgent(Agent):
         # Add a system message for context
         chat_ctx.add_message(
             role="system",
-            content=f"You are {agent_name}. {userdata.summarize()}"
+            content=f"You are Caila. {userdata.summarize()}"
         )
         
         await self.update_chat_ctx(chat_ctx)
@@ -197,7 +244,7 @@ def send_email(receiver_email: str, subject: str, body: str) -> bool:
     # 2. Get credentials from environment variables
     sender_email = os.environ.get("EMAIL_SENDER")
     sender_password = os.environ.get("EMAIL_PASSWORD")
-    sender_name = os.environ.get("EMAIL_SENDER_NAME", "LiveKit Voice Assistant")
+    sender_name = os.environ.get("EMAIL_SENDER_NAME", "Caila - Technology Consultant")
     
     # Validate email configuration
     if not sender_email or not sender_password:
@@ -260,10 +307,17 @@ async def generate_conversation_summary(history_dict: Dict) -> str:
             
             # Create the prompt for summarization
             prompt = (
-                "Create a concise summary of the following conversation between a user and an AI assistant. "
-                "Include the main topics discussed and key points.\n\n"
+                "Extract only factual information about products, devices, and technical specifications from this conversation. "
+                "Focus on factual content only, including product details, features, specifications, and use cases. "
+                "DO NOT mention 'user said', 'assistant replied', or reference the conversation itself in any way. "
+                "Your summary should:\n\n"
+                "1. Present information as direct, objective statements organized by topic\n"
+                "2. Focus primarily on device specifications, features, and business benefits\n"
+                "3. Use bullet points for clear organization of product details\n"
+                "4. Include only substantive technical and product information\n"
+                "5. Omit all conversational elements, questions, and non-product information\n\n"
                 f"CONVERSATION:\n{formatted_history}\n\n"
-                "SUMMARY:"
+                "PRODUCT INFORMATION SUMMARY:"
             )
             
             response = await loop.run_in_executor(
@@ -271,10 +325,10 @@ async def generate_conversation_summary(history_dict: Dict) -> str:
                 lambda: client.chat.completions.create(
                     model="gpt-4.1-nano-2025-04-14",
                     messages=[
-                        {"role": "system", "content": "You are a helpful assistant tasked with generating summaries."},
+                        {"role": "system", "content": "You are a product information specialist who extracts factual device specifications and features. Your summaries are concise, factual, and focused only on product details, without mentioning the conversation itself."},
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=0.3,
+                    temperature=0.2,
                     max_tokens=2000
                 )
             )
@@ -317,23 +371,34 @@ class GeneralAgent(BaseAgent):
         
         super().__init__(
             instructions=load_prompt('general_prompt.yaml'),
-            stt=deepgram.STT(model="nova-3", language="multi"),
+            stt=deepgram.STT(model="nova-3-general", language="multi",smart_format=True),
             llm=openai.LLM(
-                model="gpt-4.1-mini-2025-04-14",
+                model="gpt-4.1-nano-2025-04-14",
                 temperature=0.5,
                 timeout=timeout_value
             ),
-            tts=openai.TTS(model="gpt-4o-mini-tts", voice="alloy"),
+            tts=openai.TTS(model="gpt-4o-mini-tts", voice="alloy",instructions="high energy woman with strong german language and accent",speed=0.9),
             vad=vad_config
         )
     
     async def on_enter(self):
-        """Initial greeting when the agent joins."""
+        """Handler called when the agent becomes active."""
         await super().on_enter()
-        logger.info("GeneralAgent started, providing initial greeting")
-        await self.session.generate_reply(
-            instructions="Greet the user warmly and introduce yourself as Ana, a persuasive sales professional dedicated to promoting and selling ruggedized mobile data entry devices, handheld computers, and barcode scanners"
-        )
+        
+        # Only show the greeting if this is not a transfer or if it's the first time
+        userdata = self.session.userdata
+        if not userdata.previous_agent or not userdata.initial_greeting_shown:
+            logger.info("GeneralAgent started, providing initial greeting")
+            await self.session.generate_reply(
+                instructions="Greet the user warmly and introduce yourself as Caila, a persuasive sales professional dedicated to promoting and selling ruggedized mobile data entry devices, handheld computers, and barcode scanners"
+            )
+            userdata.initial_greeting_shown = True
+        else:
+            # This is a transfer back from product agent, continue the conversation
+            logger.info("GeneralAgent continuing after transfer")
+            await self.session.generate_reply(
+                instructions=f"Continue the conversation naturally without reintroducing yourself. Address the user's query: '{userdata.last_query}'. Do not mention any transfer or switching - maintain the illusion of a single, continuous conversation."
+            )
     
     @function_tool()
     async def transfer_to_product_agent(self, context: RunContext[UserData], query: str) -> Agent:
@@ -343,13 +408,66 @@ class GeneralAgent(BaseAgent):
         Args:
             query: The user's product-specific query that needs detailed information
         """
+        import time
+        current_time = time.time()
+        userdata = context.userdata
+        
+        # Check if this is a transfer that should be avoided (too quick after previous transfer)
+        if not userdata.can_transfer(current_time):
+            logger.info(f"Preventing transfer to product agent (cooldown): {query}")
+            await self.session.generate_reply(
+                instructions=f"The user asked: '{query}'. This appears to be a product-specific question, but we just transferred between agents. Answer this generally without specific product details. Do NOT mention any transfer cooldown or switching - maintain the illusion of a single, continuous conversation."
+            )
+            return self  # Return self to avoid transfer
+        
+        # Comprehensive list of general keywords that should prevent transfer
+        general_keywords = [
+            "help", "assistance", "talk", "connect", "general", "question", "inquiry",
+            "hello", "hi", "greetings", "good morning", "good afternoon",
+            "thank", "appreciate", "goodbye", "bye", "talk later"
+        ]
+        
+        # Check if this is an ambiguous query that should be handled by general agent
+        if any(keyword in query.lower() for keyword in general_keywords) and not any(word in query.lower()
+            for word in ["device", "model", "battery", "scanner", "product", "spec", "feature"]):
+            logger.info(f"Preventing transfer for general query: {query}")
+            await self.session.generate_reply(
+                instructions=f"The user asked: '{query}'. This appears to be a general question. Answer this without transferring to the product agent. Do NOT mention anything about agents or transfers."
+            )
+            return self  # Return self to avoid transfer
+        
+        # Detect product-specific queries
+        product_phrases = [
+            "device", "model", "battery", "scanner", "barcode", "rugged", "spec",
+            "specification", "feature", "product", "mobile", "handheld", "memory",
+            "storage", "camera", "screen", "display", "processor", "comparison",
+            "dimension", "weight", "price", "cost", "warranty", "support",
+            "how much", "which one", "tell me about", "what kind", "what type",
+            "scanner", "zebra", "honeywell", "datalogic", "point mobile", "urovo"
+        ]
+        
+        # Calculate product query score
+        product_score = sum(1 for phrase in product_phrases if phrase in query.lower())
+        is_strong_product_query = product_score >= 1
+        
+        # Only transfer for product queries
+        if not is_strong_product_query:
+            logger.info(f"Preventing transfer for non-product query: {query}")
+            await self.session.generate_reply(
+                instructions=f"The user asked: '{query}'. This doesn't appear to be a specific product question. Answer this without transferring to the product agent. Do NOT mention anything about agents or transfers."
+            )
+            return self  # Return self to avoid transfer
+            
         logger.info(f"Transferring to product agent for: {query}")
         
-        # Tell the user we're looking for product info
-        await self.session.say("Hold on for a bit, searching for information.")
+        # Tell the user we're looking for product info in a conversational way
+        await self.session.say("Let me check our product database for that information.")
         
         # Store the query in userdata for context
-        context.userdata.last_query = query
+        userdata.last_query = query
+        
+        # Update transfer time
+        userdata.update_transfer_time(current_time)
         
         # Play transition sound if background audio is available
         if 'background_audio' in globals() and background_audio:
@@ -372,7 +490,10 @@ class GeneralAgent(BaseAgent):
             receiver_email: The email address to send the conversation history to
             send_summary: Whether to send a summary (True) or the full transcript (False)
         """
-        logger.info(f"Ana sending {'summary' if send_summary else 'transcript'} to: {receiver_email}")
+        # Add the confirmation message immediately
+        await self.session.say("I will send the email and tell you when I'm done.")
+        
+        logger.info(f"Caila sending {'summary' if send_summary else 'transcript'} to: {receiver_email}")
         
         try:
             # Store email address for future use
@@ -393,15 +514,15 @@ class GeneralAgent(BaseAgent):
             # Generate content based on preference
             if send_summary:
                 content = await generate_conversation_summary(history_dict)
-                subject = "Summary of Your Conversation with Ana"
-                intro = "Here's a summary of your conversation with Ana, your tech consultant:"
+                subject = "Summary of Your Conversation with Caila"
+                intro = "Here's a summary of your conversation with Caila, your tech consultant:"
             else:
                 content = format_chat_history(history_dict)
-                subject = "Your Conversation with Ana"
-                intro = "Here's the transcript of your conversation with Ana, your tech consultant:"
+                subject = "Your Conversation with Caila"
+                intro = "Here's the transcript of your conversation with Caila, your tech consultant:"
             
             # Format email
-            body = f"Hello,\n\n{intro}\n\n{content}\n\nBest regards,\nAna - Your Technology Consultant"
+            body = f"Hello,\n\n{intro}\n\n{content}\n\nBest regards,\nCaila - Your Technology Consultant"
             
             # Send email
             success = send_email(receiver_email, subject, body)
@@ -453,13 +574,13 @@ class ProductAgent(BaseAgent):
         
         super().__init__(
             instructions=combined_prompt,
-            stt=deepgram.STT(model="nova-3", language="multi"),
+            stt=deepgram.STT(model="nova-3-general", language="multi",smart_format=True),
             llm=openai.LLM(
                 model="gpt-4.1-mini-2025-04-14",
                 temperature=0.2,
                 timeout=timeout_value
             ),
-            tts=openai.TTS(model="gpt-4o-mini-tts", voice="alloy"),
+            tts=openai.TTS(model="gpt-4o-mini-tts", voice="alloy",instructions="informatic tone , slow talking , energyfull",speed=0.85),
             vad=vad_config
         )
     
@@ -469,14 +590,47 @@ class ProductAgent(BaseAgent):
         logger.info("ProductAgent processing query")
         
         # Get the last query if available
-        last_query = self.session.userdata.last_query
+        userdata = self.session.userdata
+        last_query = userdata.last_query
+        
         if last_query:
+            # Check if this is an explicit transfer request that was missed
+            # More comprehensive list of possible transfer phrases
+            transfer_phrases = [
+                "talk to general", "connect with general", "switch to general", "general agent",
+                "connect general", "back to general", "change agent", "talk to someone else",
+                "connect with your general agent", "switch agents", "go back"
+            ]
+            
+            # More aggressive matching - match partial phrases too
+            if any(phrase in last_query.lower() for phrase in transfer_phrases):
+                # This should have been transferred but was missed, let's handle it
+                import time
+                current_time = time.time()
+                if userdata.can_transfer(current_time):
+                    logger.info(f"Detected missed transfer request in on_enter: {last_query}")
+                    userdata.update_transfer_time(current_time)
+                    await self.transfer_to_general_agent(RunContext(self.session, userdata), "Transfer back to general")
+                    return
+            
+            # Normal product question handling
             await self.session.generate_reply(
-                instructions=f"Answer this product question directly without introducing yourself: '{last_query}'. Use the product information in your system prompt to provide specific and accurate details. ONLY mention products explicitly listed in our product catalog - DO NOT reference any consumer brands or products not in our catalog. Keep your answer concise (2-3 sentences) to make sure the user can interrupt if needed, but make sure to include relevant product details."
+                instructions=f"""Answer this product question directly without introducing yourself: '{last_query}'.
+                ONLY use information from the final.md file provided in your system prompt. Do not use any other knowledge.
+                
+                If the specific information isn't in final.md, respond with something like:
+                "I don't have that specific information in our product database, but I'd be happy to tell you about [related topic you do have info about]."
+                
+                Or if nothing related is available:
+                "I don't have that specific information available. Is there something else about our ruggedized devices you'd like to know?"
+                
+                Keep your answer concise (2-3 sentences) to make sure the user can interrupt if needed, but include relevant product details when available."""
             )
         else:
             await self.session.generate_reply(
-                instructions="Continue the conversation naturally without introduction, keeping your response very brief (1-2 sentences). Ask what specific product information they'd like to know."
+                instructions="""Continue the conversation naturally as Caila, keeping your response very brief (1-2 sentences).
+                Ask what specific product information they'd like to know about our ruggedized devices.
+                Remember to ONLY use information from the final.md file provided and be upfront when you don't have specific information."""
             )
     
     @function_tool()
@@ -487,20 +641,73 @@ class ProductAgent(BaseAgent):
         Args:
             query: The user's non-product specific query
         """
-        logger.info(f"Transferring to general agent for: {query}")
+        import time
+        current_time = time.time()
+        userdata = context.userdata
         
-        # Tell the user we're returning to general conversation
-        await self.session.say("Let me think about that from a broader perspective.")
+        # Check if this is a transfer that should be avoided (too quick after previous transfer)
+        if not userdata.can_transfer(current_time):
+            logger.info(f"Preventing transfer to general agent (cooldown): {query}")
+            await self.session.generate_reply(
+                instructions=f"The user asked: '{query}'. This appears to be a general question, but we just transferred between agents. Try to answer this generally while staying in your role. Do NOT mention any transfer cooldown or switching - maintain the illusion of a single, continuous conversation."
+            )
+            return self  # Return self to avoid transfer
+            
+        # Detect explicit transfer requests - more comprehensive list
+        transfer_phrases = [
+            "talk to general", "connect with general", "switch to general",
+            "speak with general", "talk to the general", "connect to general",
+            "change agent", "talk to someone else", "get general help",
+            "go back", "back to previous", "return to general", "general agent",
+            "talk to ana", "speak to ana", "change back", "switch back"
+        ]
         
-        # Store the query in userdata for context
-        context.userdata.last_query = query
+        # Calculate transfer request score
+        transfer_words = ["talk", "connect", "switch", "speak", "change", "general", "back", "return"]
+        transfer_score = sum(1 for word in transfer_words if word in query.lower().split())
         
-        # Play transition sound if background audio is available
-        if 'background_audio' in globals() and background_audio:
-            background_audio.play("transition.wav")
+        # Check if this is a direct request to transfer - either exact phrase or many keywords
+        is_transfer_request = any(phrase in query.lower() for phrase in transfer_phrases) or transfer_score >= 2
         
-        # Return the general agent to trigger handoff
-        return await self._transfer_to_agent("general", context)
+        # Identify general business questions that aren't product specific - expanded list
+        general_indicators = [
+            "business", "company", "industry", "help", "support",
+            "service", "contact", "question", "general", "inquiry",
+            "thank", "appreciate", "goodbye", "bye", "talk later",
+            "advice", "suggestion", "recommendation", "idea",
+            "hello", "hi", "greetings", "good morning", "good afternoon",
+            "pricing", "payment", "discount", "deal", "offer", "availability",
+            "delivery", "shipping", "order", "purchase", "buy",
+            "warranty", "guarantee", "return policy", "refund"
+        ]
+        
+        is_general_query = any(indicator in query.lower() for indicator in general_indicators)
+        
+        if is_transfer_request or is_general_query:
+            logger.info(f"Transferring to general agent for: {query}")
+            
+            # Tell the user we're returning to general conversation naturally
+            await self.session.say("I understand what you're asking about.")
+            
+            # Store the query in userdata for context
+            userdata.last_query = query
+            
+            # Update transfer time
+            userdata.update_transfer_time(current_time)
+            
+            # Play transition sound if background audio is available
+            if 'background_audio' in globals() and background_audio:
+                background_audio.play("transition.wav")
+            
+            # Return the general agent to trigger handoff
+            return await self._transfer_to_agent("general", context)
+        else:
+            # Not a general query, handle it as a product query
+            logger.info(f"Handling as product query (not transferring): {query}")
+            await self.session.generate_reply(
+                instructions=f"The user asked: '{query}'. This appears to be a product-related question. Answer using ONLY information from the final.md file. If you don't have the specific information, politely say 'I don't have that specific information in our product database.'"
+            )
+            return self  # Return self to avoid transfer
     
     @function_tool()
     async def send_email_to_user(
@@ -516,7 +723,10 @@ class ProductAgent(BaseAgent):
             receiver_email: The email address to send the conversation history to
             send_summary: Whether to send a summary (True) or the full transcript (False)
         """
-        logger.info(f"Ana sending {'summary' if send_summary else 'transcript'} to: {receiver_email}")
+        # Add the confirmation message immediately
+        await self.session.say("I will send the email and tell you when I'm done.")
+        
+        logger.info(f"Caila sending {'summary' if send_summary else 'transcript'} to: {receiver_email}")
         
         try:
             # Store email address for future use
@@ -537,15 +747,15 @@ class ProductAgent(BaseAgent):
             # Generate content based on preference
             if send_summary:
                 content = await generate_conversation_summary(history_dict)
-                subject = "Summary of Your Conversation with Ana"
-                intro = "Here's a summary of your conversation with Ana:"
+                subject = "Summary of Your Conversation with Caila"
+                intro = "Here's a summary of your conversation with Caila:"
             else:
                 content = format_chat_history(history_dict)
-                subject = "Your Conversation with Ana"
-                intro = "Here's the transcript of your conversation with Ana:"
+                subject = "Your Conversation with Caila"
+                intro = "Here's the transcript of your conversation with Caila:"
             
             # Format email
-            body = f"Hello,\n\n{intro}\n\n{content}\n\nBest regards,\nAna - Your Technology Consultant"
+            body = f"Hello,\n\n{intro}\n\n{content}\n\nBest regards,\nCaila - Your Technology Consultant"
             
             # Send email
             success = send_email(receiver_email, subject, body)
@@ -590,6 +800,7 @@ async def entrypoint(ctx: JobContext):
         "general": general_agent,
         "product": product_agent
     }
+    userdata.cooldown_period = 10.0  # Longer cooldown to prevent frequent switching (10 seconds)
     
     # Create session with userdata and turn detection configuration
     session = AgentSession[UserData](
@@ -602,6 +813,7 @@ async def entrypoint(ctx: JobContext):
     )
     
     logger.info(f"API options configured with timeout of {api_options.timeout}s")
+    logger.info(f"Agent transfer cooldown period set to {userdata.cooldown_period}s")
     
     # Create a global reference to store the BackgroundAudioPlayer
     global background_audio
@@ -616,6 +828,50 @@ async def entrypoint(ctx: JobContext):
     # Store the player in our global variable for use by the agents
     background_audio = bg_player
     
+    # Add transcript detection for automatic agent switching if needed
+    @session.on("transcript")
+    def on_transcript(transcript):
+        # Use asyncio.create_task to run the async processing
+        import asyncio
+        asyncio.create_task(process_transcript(transcript))
+    
+    # Define transcript processor for additional agent switching logic
+    async def process_transcript(transcript):
+        try:
+            query = transcript.text
+            if not query or len(query.strip()) == 0:
+                return
+            
+            current_agent_name = "general" if isinstance(session.current_agent, GeneralAgent) else "product"
+            logger.debug(f"Processing transcript with {current_agent_name} agent: {query}")
+            
+            # Only analyze for transfers if we're not responding yet and if outside cooldown period
+            import time
+            current_time = time.time()
+            if not userdata.can_transfer(current_time):
+                logger.debug(f"Skipping transfer analysis (in cooldown period): {query}")
+                return
+                
+            # Check for explicit transfer requests
+            transfer_phrases = [
+                "talk to general", "connect with general", "switch to general",
+                "general agent", "back to general"
+            ]
+            
+            # Detect transfer requests first
+            if any(phrase in query.lower() for phrase in transfer_phrases) and current_agent_name == "product":
+                logger.info(f"Detected explicit transfer request in transcript handler: {query}")
+                # Let the agent handle this with its function tool in on_enter
+                userdata.last_query = query
+            
+        except Exception as e:
+            logger.error(f"Error processing transcript: {e}")
+    
+    # Log function calls for debugging
+    @session.on("function_call")
+    def on_function_call(event):
+        logger.info(f"Function call detected: {event.name} with args: {event.arguments}")
+    
     # Start with the general assistant
     await session.start(
         agent=general_agent,
@@ -624,11 +880,6 @@ async def entrypoint(ctx: JobContext):
     
     # Start background audio player
     await background_audio.start(room=ctx.room, agent_session=session)
-    
-    # Log function calls for debugging
-    @session.on("function_call")
-    def on_function_call(event):
-        logger.info(f"Function call detected: {event.name} with args: {event.arguments}")
 
 
 if __name__ == "__main__":
