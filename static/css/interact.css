@@ -164,8 +164,9 @@ body, html {
 }
 
 .logo {
-  height: 40px;
+  height: 50px;
   width: auto;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 /* Improved status indicator */
@@ -367,9 +368,9 @@ body, html {
     align-items: center;
     justify-content: center;
     overflow-y: auto;
-    max-height: calc(var(--card-height) - 220px);
-    padding: 1rem 0.5rem;
-    margin-bottom: 1rem;
+    max-height: calc(var(--card-height) - 180px);
+    padding: 1.5rem 1rem;
+    margin-bottom: 1.5rem;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
     scroll-behavior: smooth;
@@ -606,37 +607,59 @@ body, html {
 }
 
 .voice-button.connected {
-  background: #fbdf04; /* Keep primary color */
+  background: linear-gradient(145deg, #fbdf04, #ffd000);
   box-shadow: 0 4px 15px rgba(251, 223, 4, 0.3);
   color: #212529;
 }
 
 .voice-button.active {
-  background: #fbdf04; /* Keep primary color */
-  box-shadow: 0 4px 20px rgba(251, 223, 4, 0.5), 0 0 15px rgba(251, 223, 4, 0.4);
-  color: #212529;
+  background: linear-gradient(145deg, #2ecc71, #27ae60);
+  box-shadow: 0 4px 20px rgba(46, 204, 113, 0.5), 0 0 15px rgba(46, 204, 113, 0.4);
+  color: #ffffff;
   animation: subtle-pulse 2s infinite;
 }
 
 @keyframes subtle-pulse {
   0% {
-    box-shadow: 0 4px 15px rgba(251, 223, 4, 0.3);
+    box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
   }
   50% {
-    box-shadow: 0 4px 20px rgba(251, 223, 4, 0.5), 0 0 25px rgba(251, 223, 4, 0.4);
+    box-shadow: 0 4px 20px rgba(46, 204, 113, 0.5), 0 0 25px rgba(46, 204, 113, 0.4);
   }
   100% {
-    box-shadow: 0 4px 15px rgba(251, 223, 4, 0.3);
+    box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
   }
 }
 
 /* Improve icon sizes */
-#mic-icon-connect, #mic-icon-mute, #mic-icon-active {
+#mic-icon-connect {
   font-size: 28px;
   color: #212529;
 }
 
-/* Voice waves animation - more minimal and elegant */
+#mic-icon-mute {
+  font-size: 28px;
+  color: #212529;
+}
+
+#mic-icon-active {
+  font-size: 30px;
+  color: #ffffff;
+  animation: icon-pulse 1.5s infinite cubic-bezier(0.455, 0.03, 0.515, 0.955);
+}
+
+@keyframes icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    transform: scale(1.2);
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* Voice waves animation - only for mic animation */
 .voice-waves {
   position: absolute;
   width: 100%;
@@ -658,8 +681,8 @@ body, html {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid rgba(33, 37, 41, 0.3);
-  animation: wave 2s infinite;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  animation: wave 3.5s infinite ease-out;
 }
 
 .voice-waves span:nth-child(1) {
@@ -667,79 +690,31 @@ body, html {
 }
 
 .voice-waves span:nth-child(2) {
-  animation-delay: 0.5s;
+  animation-delay: 0.8s;
 }
 
 .voice-waves span:nth-child(3) {
-  animation-delay: 1s;
+  animation-delay: 1.6s;
 }
 
 .voice-waves span:nth-child(4) {
-  animation-delay: 1.5s;
+  animation-delay: 2.4s;
 }
 
 @keyframes wave {
   0% {
     transform: scale(1);
-    opacity: 0.7;
+    opacity: 0.8;
   }
   100% {
-    transform: scale(1.5);
+    transform: scale(1.4);
     opacity: 0;
   }
 }
 
-/* Listening indicator animation - minimal dots */
+/* Removed listening indicator - using only waves for animation */
 .listening-indicator {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  height: 6px;
-  width: 30px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.voice-button.active .listening-indicator {
-  opacity: 1;
-}
-
-.listening-indicator span {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin: 0 2px;
-  background-color: #212529;
-  border-radius: 50%;
-  opacity: 0.7;
-}
-
-.listening-indicator span:nth-child(1) {
-  animation: pulse-dot 1.2s infinite;
-}
-
-.listening-indicator span:nth-child(2) {
-  animation: pulse-dot 1.2s infinite;
-  animation-delay: 0.4s;
-}
-
-.listening-indicator span:nth-child(3) {
-  animation: pulse-dot 1.2s infinite;
-  animation-delay: 0.8s;
-}
-
-@keyframes pulse-dot {
-  0%, 100% {
-    transform: scale(0.7);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  display: none;
 }
 
 /* Add subtle animation for the active mic icon */

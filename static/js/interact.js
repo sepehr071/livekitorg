@@ -77,8 +77,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('welcome-screen').style.display = 'none';
                 document.getElementById('conversation-screen').style.display = 'block';
                 
-                // Now start recording after successful connection
-                startRecording();
+                // Don't automatically start recording after connection
+                // Just update the UI to show connected state
             } catch (error) {
                 console.error('Connection error:', error);
                 updateStatus('disconnected');
@@ -713,7 +713,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mic-icon-mute').style.display = 'none';
             document.getElementById('mic-icon-active').style.display = 'inline-block';
             
-            micStatus.textContent = 'Listening';
+            micStatus.textContent = 'You can talk now';
             isRecording = true;
             
             showFlashMessage('Microphone activated. Speak now...', 'info');
@@ -738,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mic-icon-mute').style.display = 'inline-block';
             document.getElementById('mic-icon-active').style.display = 'none';
             
-            micStatus.textContent = 'Speak';
+            micStatus.textContent = 'Click to talk';
             isRecording = false;
             
             showFlashMessage('Microphone deactivated.', 'info');
@@ -975,7 +975,7 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'disconnected':
                 micButton.classList.remove('connected');
                 micButton.classList.remove('active');
-                micStatus.textContent = 'Start';
+                micStatus.textContent = 'Connect';
                 
                 // Show connect icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'inline-block';
@@ -1008,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             case 'connected':
                 micButton.classList.add('connected');
-                micStatus.textContent = 'Speak';
+                micStatus.textContent = 'Click to talk';
                 
                 // Show mute icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'none';
