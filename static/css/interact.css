@@ -44,11 +44,12 @@ body, html {
   overflow: hidden;
   background: var(--bg-lighter);
   background-image:
-    linear-gradient(to bottom right, rgba(251, 223, 4, 0.05), transparent),
-    linear-gradient(to top left, rgba(255, 193, 7, 0.05), transparent);
+    radial-gradient(circle at 10% 20%, rgba(251, 223, 4, 0.3), transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(255, 152, 0, 0.25), transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(255, 193, 7, 0.2), transparent 60%);
 }
 
-/* Static gradient background with minimal wave */
+/* Animated gradient background */
 .interact-page::after {
   content: '';
   position: absolute;
@@ -56,13 +57,28 @@ body, html {
   height: 100%;
   top: 0;
   left: 0;
-  background: linear-gradient(90deg,
-    rgba(251, 223, 4, 0.1) 0%,
-    rgba(255, 193, 7, 0.1) 100%);
+  background: linear-gradient(120deg,
+    rgba(251, 223, 4, 0.2) 0%,
+    rgba(255, 193, 7, 0.2) 50%,
+    rgba(255, 152, 0, 0.2) 100%);
+  background-size: 200% 200%;
   z-index: 0;
+  animation: gradientShift 15s ease infinite;
 }
 
-/* Big minimal wave */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Colorful wave */
 .interact-page::before {
   content: '';
   position: absolute;
@@ -70,10 +86,20 @@ body, html {
   height: 100%;
   top: 0;
   left: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23fbdf04' fill-opacity='0.1' d='M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23fbdf04' fill-opacity='0.2' d='M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
   background-size: cover;
   background-position: center bottom;
   z-index: 0;
+  animation: waveFloat 20s ease-in-out infinite;
+}
+
+@keyframes waveFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(10px);
+  }
 }
 
 /* Container */
@@ -289,6 +315,49 @@ body, html {
 }
 
 /* User text display removed */
+
+/* Welcome screen (before connection) */
+.welcome-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    padding: 2rem;
+    animation: fadeIn 0.8s ease-out;
+}
+
+.welcome-content {
+    max-width: 80%;
+}
+
+.welcome-screen h1 {
+    font-size: 3rem;
+    color: var(--text-dark);
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 10px rgba(251, 223, 4, 0.2);
+    animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* Conversation screen (after connection) */
+.conversation-screen {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
 
 /* AI response container - centered in the middle */
 .ai-response-container {

@@ -54,14 +54,24 @@
                 </div>
                 
                 <div class="glass-card-content">
-                    <!-- AI response in the middle -->
-                    <div class="ai-response-container" id="conversation-container">
-                        <!-- AI responses will be added here dynamically -->
+                    <!-- Welcome screen (shown before connection) -->
+                    <div class="welcome-screen" id="welcome-screen">
+                        <div class="welcome-content">
+                            <h1>Welcome to Carema Assistant</h1>
+                        </div>
                     </div>
                     
-                    <!-- Hidden original chat container kept for compatibility -->
-                    <div id="chat-container" class="chat-container" style="display: none;">
-                        <!-- Original messages will be stored here but not displayed -->
+                    <!-- Conversation screen (shown after connection) -->
+                    <div class="conversation-screen" id="conversation-screen" style="display: none;">
+                        <!-- AI response in the middle -->
+                        <div class="ai-response-container" id="conversation-container">
+                            <!-- AI responses will be added here dynamically -->
+                        </div>
+                        
+                        <!-- Hidden original chat container kept for compatibility -->
+                        <div id="chat-container" class="chat-container" style="display: none;">
+                            <!-- Original messages will be stored here but not displayed -->
+                        </div>
                     </div>
                     
                     <div class="voice-button-container">

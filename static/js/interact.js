@@ -73,6 +73,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Connect to the LiveKit room
                 await connectToRoom(data.token, data.livekit_url);
                 
+                // Switch from welcome screen to conversation screen
+                document.getElementById('welcome-screen').style.display = 'none';
+                document.getElementById('conversation-screen').style.display = 'block';
+                
                 // Now start recording after successful connection
                 startRecording();
             } catch (error) {
@@ -684,6 +688,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 isConnected = false;
                 updateStatus('disconnected');
                 enableDisconnect(false);
+                
+                // Switch back to welcome screen
+                document.getElementById('welcome-screen').style.display = 'flex';
+                document.getElementById('conversation-screen').style.display = 'none';
             }
         }
     }
@@ -960,15 +968,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update the connection status indicator
     function updateStatus(status) {
-        statusIndicator.className = 'status-indicator';
-        statusIndicator.classList.add('status-' + status);
-        
         // Get the text input container
         const textInputContainer = document.querySelector('.text-input-container');
         
         switch (status) {
             case 'disconnected':
-                connectionStatus.textContent = 'Ready';
                 micButton.classList.remove('connected');
                 micButton.classList.remove('active');
                 micStatus.textContent = 'Start';
@@ -982,10 +986,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (textInputContainer) {
                     textInputContainer.classList.remove('visible');
                 }
+                
+                // Show welcome screen, hide conversation screen
+                document.getElementById('welcome-screen').style.display = 'flex';
+                document.getElementById('conversation-screen').style.display = 'none';
                 break;
                 
             case 'connecting':
-                connectionStatus.textContent = 'Connecting';
                 micStatus.textContent = 'Connecting';
                 
                 // Show connect icon and hide others
@@ -1000,7 +1007,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
                 
             case 'connected':
-                connectionStatus.textContent = 'Connected';
                 micButton.classList.add('connected');
                 micStatus.textContent = 'Speak';
                 
@@ -1013,6 +1019,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (textInputContainer) {
                     textInputContainer.classList.add('visible');
                 }
+                
+                // Show conversation screen, hide welcome screen
+                document.getElementById('welcome-screen').style.display = 'none';
+                document.getElementById('conversation-screen').style.display = 'block';
                 break;
         }
     }
@@ -1044,4 +1054,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize language indicator
     currentLangIndicator.textContent = 'DE'; // German
+    
+    // Initialize screens - show welcome screen, hide conversation screen
+    document.getElementById('welcome-screen').style.display = 'flex';
+    document.getElementById('conversation-screen').style.display = 'none';
 });
