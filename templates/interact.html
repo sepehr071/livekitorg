@@ -70,20 +70,25 @@
                     <div class="voice-button-container">
                         <button id="mic-button" class="voice-button">
                             <!-- Default disconnected state icon -->
-                            <i class="fas fa-plug" id="mic-icon-connect"></i>
+                            <i class="fas fa-arrow-right" id="mic-icon-connect"></i>
                             <!-- Connected/muted state icon (initially hidden) -->
-                            <i class="fas fa-microphone-slash" id="mic-icon-mute" style="display: none;"></i>
+                            <i class="fas fa-microphone" id="mic-icon-mute" style="display: none;"></i>
                             <!-- Active/listening state icon (initially hidden) -->
-                            <i class="fas fa-broadcast-tower" id="mic-icon-active" style="display: none;"></i>
+                            <i class="fas fa-microphone-alt" id="mic-icon-active" style="display: none;"></i>
                             <div class="voice-waves">
                                 <span></span>
                                 <span></span>
                                 <span></span>
                                 <span></span>
                             </div>
+                            <div class="listening-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                         </button>
                         <div class="voice-status">
-                            <span id="mic-status">Click to connect</span>
+                            <span id="mic-status">Start</span>
                         </div>
                     </div>
                     
