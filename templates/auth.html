@@ -17,9 +17,7 @@
 </head>
 <body>
 <div class="auth-page">
-    <!-- Clean background with subtle gradient -->
-    
-    <div class="container">
+    <div class="auth-wrapper">
         <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -34,96 +32,100 @@
             {% endif %}
         {% endwith %}
         
-        <div class="row justify-content-center auth-container">
-            <div class="col-md-5">
-                <div class="glass-card">
-                    <div class="glass-card-content">
-                        <h3 class="page-title">
-                            {% if is_activation %}
-                            <span style="background: linear-gradient(90deg, #fbdf04, #ffc107); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Activate your account to access Voice AI</span>
-                            {% else %}
-                            <span style="background: linear-gradient(90deg, #fbdf04, #ffc107); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Enter your credentials to access Voice AI</span>
-                            {% endif %}
-                        </h3>
-                        
-                        {% if not is_activation %}
-                        <div style="display: flex; justify-content: center; margin: 0; padding: 0 0 15px 0;">
-                            <dotlottie-wc src="https://lottie.host/8450da08-8f50-4a90-9ad0-3c43ddec3952/mpRmE8ETk0.lottie" speed="1" style="width: 250px; height: 60px; margin: 0; padding: 0;" mode="forward" loop autoplay></dotlottie-wc>
-                        </div>
-                        {% endif %}
-                        
+        <div class="auth-card">
+            <div class="auth-card-left">
+                <div class="brand-section">
+                    <div class="logo-container">
+                        <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Carema Logo" class="logo">
+                    </div>
+                    <h2 class="brand-title">
+                        <span>Carema Interactive Learning Assistant</span>
+                    </h2>
+                    <!-- Lottie animation removed as requested -->
+                </div>
+            </div>
+            
+            <div class="auth-card-right">
+                <div class="form-container">
+                    <h3 class="form-title">
                         {% if is_activation %}
-                        <div class="welcome-message">
-                            <p><strong>Welcome!</strong> Your account has been created by an administrator.</p>
-                            <p>Please set your password to activate your account.</p>
-                        </div>
+                        <span>Activate Your Account</span>
+                        {% else %}
+                        <span>Sign In</span>
                         {% endif %}
+                    </h3>
+                    
+                    {% if is_activation %}
+                    <div class="welcome-message">
+                        <p><strong>Welcome!</strong> Your account has been created by an administrator.</p>
+                        <p>Please set your password to activate your account.</p>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="POST" action="{{ url_for('auth.authenticate') }}" class="auth-form">
+                        {{ form.csrf_token }}
                         
-                        <form method="POST" action="{{ url_for('auth.authenticate') }}" class="auth-form">
-                            {{ form.csrf_token }}
-                            
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-icon">
-                                        <i class="fas fa-user"></i>
-                                    </span>
-                                    {{ form.username(class="form-input",
-                                                   placeholder="Username",
-                                                   readonly=is_activation) }}
+                        <div class="form-group">
+                            <div class="input-group">
+                                <span class="input-icon">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                {{ form.username(class="form-input",
+                                               placeholder="Username",
+                                               readonly=is_activation) }}
+                            </div>
+                            {% if form.username.errors %}
+                                <div class="error-message">
+                                    {% for error in form.username.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
                                 </div>
-                                {% if form.username.errors %}
-                                    <div class="error-message">
-                                        {% for error in form.username.errors %}
-                                            <small>{{ error }}</small>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-icon">
-                                        <i class="fas fa-lock"></i>
-                                    </span>
-                                    {{ form.password(class="form-input",
-                                                   placeholder="Password") }}
-                                </div>
-                                {% if form.password.errors %}
-                                    <div class="error-message">
-                                        {% for error in form.password.errors %}
-                                            <small>{{ error }}</small>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                                {% if is_activation %}
-                                <small class="password-hint">
-                                    Choose a secure password with at least 6 characters.
-                                </small>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="form-action">
-                                {{ form.submit(class="submit-btn " ~
-                                              ("activation" if is_activation else "signin"),
-                                              value=("Activate Account" if is_activation else "Sign In")) }}
-                            </div>
-                        </form>
-                        
-                        <div class="auth-footer">
-                            {% if is_activation %}
-                            <p>
-                                Already activated your account? <a href="{{ url_for('auth.authenticate') }}">Sign in here</a>
-                            </p>
                             {% endif %}
                         </div>
+                        
+                        <div class="form-group">
+                            <div class="input-group">
+                                <span class="input-icon">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                {{ form.password(class="form-input",
+                                               placeholder="Password") }}
+                            </div>
+                            {% if form.password.errors %}
+                                <div class="error-message">
+                                    {% for error in form.password.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if is_activation %}
+                            <small class="password-hint">
+                                Choose a secure password with at least 6 characters.
+                            </small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-action">
+                            {{ form.submit(class="submit-btn " ~
+                                          ("activation" if is_activation else "signin"),
+                                          value=("Activate Account" if is_activation else "Sign In")) }}
+                        </div>
+                    </form>
+                    
+                    <div class="auth-footer">
+                        {% if is_activation %}
+                        <p>
+                            Already activated your account? <a href="{{ url_for('auth.authenticate') }}">Sign in here</a>
+                        </p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-    
-    <div class="copyright">
-        © {{ now.year if now else 2025 }} AYAND. All rights reserved.
+        
+        <div class="copyright">
+            © {{ now.year if now else 2025 }} AYAND.AI GmbH (in Gründung)
+        </div>
     </div>
 </div>
 
