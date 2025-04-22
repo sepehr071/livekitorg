@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let room = null;
     let isConnected = false;
     let isRecording = false;
-    let currentLanguage = 'en'; // Default language
+    let currentLanguage = 'de'; // Default language (German)
     let lastUserInput = ''; // Store the last user input
 
     // Connect button handler - only used internally now
@@ -122,6 +122,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('#lang-dropdown a').forEach(link => {
         link.addEventListener('click', async (e) => {
             e.preventDefault();
+            
+            // Skip if the language option is disabled
+            if (e.target.classList.contains('disabled')) {
+                showFlashMessage('This language is currently not available', 'warning');
+                return;
+            }
+            
             const newLang = e.target.getAttribute('data-lang');
             
             // Close the dropdown
@@ -184,9 +191,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function getLangName(langCode) {
         const langNames = {
             'en': 'English',
-            'fa': 'فارسی',
-            'ar': 'العربية',
-            'fr': 'Français'
+            'de': 'German',
+            'fr': 'French',
+            'es': 'Spanish',
+            'it': 'Italian',
+            'nl': 'Dutch',
+            'pl': 'Polish'
         };
         return langNames[langCode] || langCode;
     }
@@ -487,19 +497,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add to user message tracking map
         userMessagesByContent.set(normalizedContent, null); // We don't need to track the element
         
-        // Update the user text display
-        const userTextDisplay = document.getElementById('user-text-display');
-        if (userTextDisplay) {
-            userTextDisplay.textContent = text;
-            
-            // Store reference to this element
-            userMessagesByContent.set(normalizedContent, userTextDisplay);
-            
-            // Save this as the last user input (only if it's a final transcription or substantial)
-            if (isFinal || text.length > 15) {
-                lastUserInput = text;
-                console.log(`Saved last user input: "${lastUserInput}"`);
-            }
+        // Save this as the last user input (only if it's a final transcription or substantial)
+        if (isFinal || text.length > 15) {
+            lastUserInput = text;
+            console.log(`Saved last user input: "${lastUserInput}"`);
         }
         
         // Also add to chat history container (hidden but functional)
@@ -853,12 +854,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             return aiMessage;
         } else {
-            // Handle user message - just update the user text display
-            const userTextDisplay = document.getElementById('user-text-display');
-            if (userTextDisplay) {
-                userTextDisplay.textContent = text;
-            }
-            
+            // Handle user message - no display needed as we've removed the user text display
             return null; // No element to return for user messages
         }
     }
@@ -909,18 +905,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`AGENT MESSAGE [${source}]: "${text}" (isTranscription=${isTranscription})`);
         
         try {
-            // Restore the last user input if the user text display is empty or has been cleared
-            const userTextDisplay = document.getElementById('user-text-display');
-            if (userTextDisplay &&
-                (userTextDisplay.textContent.trim() === '' ||
-                 userTextDisplay.textContent.trim().length < 5)) {
-                
-                // Only restore if we have a saved user input
-                if (lastUserInput && lastUserInput.trim() !== '') {
-                    console.log(`Restoring last user input: "${lastUserInput}"`);
-                    userTextDisplay.textContent = lastUserInput;
-                }
-            }
+            // No need to restore user text display as it's been removed
             
             // Create a new agent message - we don't need deduplication since we only show the latest message
             console.log("Creating new agent message");
@@ -1058,5 +1043,5 @@ document.addEventListener('DOMContentLoaded', function() {
     updateStatus('disconnected');
     
     // Initialize language indicator
-    currentLangIndicator.textContent = currentLanguage.toUpperCase();
+    currentLangIndicator.textContent = 'DE'; // German
 });

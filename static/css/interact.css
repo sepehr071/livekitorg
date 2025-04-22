@@ -225,7 +225,13 @@ body, html {
   text-align: center;
 }
 
-.dropdown-content a:hover {
+.dropdown-content a.disabled {
+  color: var(--text-muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dropdown-content a:not(.disabled):hover {
   background: rgba(0, 0, 0, 0.05);
 }
 
@@ -270,23 +276,7 @@ body, html {
     pointer-events: none;
 }
 
-/* User text display - simple text above voice button */
-.user-text-display {
-    width: 100%;
-    min-height: 40px;
-    max-height: 80px;
-    overflow-y: auto;
-    margin-bottom: 0.5rem;
-    padding: 0.75rem;
-    text-align: center;
-    color: var(--text-dark);
-    font-size: 1rem;
-    font-weight: 400;
-    opacity: 0.85;
-    background-color: rgba(251, 223, 4, 0.1);
-    border-radius: 12px;
-    border: 1px solid rgba(251, 223, 4, 0.2);
-}
+/* User text display removed */
 
 /* AI response container - centered in the middle */
 .ai-response-container {
