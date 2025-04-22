@@ -342,6 +342,9 @@ body, html {
     -webkit-text-fill-color: transparent;
     text-shadow: 0 2px 10px rgba(251, 223, 4, 0.2);
     animation: pulse 3s ease-in-out infinite;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 @keyframes pulse {
@@ -377,6 +380,7 @@ body, html {
     background-color: rgba(255, 193, 7, 0.05);
     border-radius: 16px;
     border: 1px solid rgba(255, 193, 7, 0.1);
+    width: 100%;
 }
 
 .ai-response-container::-webkit-scrollbar {
@@ -399,6 +403,9 @@ body, html {
     margin-bottom: 0.5rem;
     animation: fadeIn 0.3s ease-out; /* Faster animation */
     text-align: center;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
 }
 
 .ai-message-content {
@@ -412,6 +419,9 @@ body, html {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 500;
+    max-width: 100%;
+    white-space: normal;
+    overflow: hidden;
 }
 
 /* Remove streaming cursor effects */
@@ -917,7 +927,16 @@ body, html {
   }
   
   .ai-response-text {
-    font-size: 1.2rem;
+      font-size: 1.2rem;
+  }
+  
+  .welcome-screen h1 {
+      font-size: 2rem;
+  }
+  
+  .ai-message-content {
+      font-size: 1.1rem;
+      line-height: 1.5;
   }
 }
 
