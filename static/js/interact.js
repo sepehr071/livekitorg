@@ -713,7 +713,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mic-icon-mute').style.display = 'none';
             document.getElementById('mic-icon-active').style.display = 'inline-block';
             
-            micStatus.textContent = 'You can talk now';
+            micStatus.textContent = 'Microphone is active';
             isRecording = true;
             
             showFlashMessage('Microphone activated. Speak now...', 'info');
@@ -738,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mic-icon-mute').style.display = 'inline-block';
             document.getElementById('mic-icon-active').style.display = 'none';
             
-            micStatus.textContent = 'Click to talk';
+            micStatus.textContent = 'Microphone is on mute';
             isRecording = false;
             
             showFlashMessage('Microphone deactivated.', 'info');
@@ -1008,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             case 'connected':
                 micButton.classList.add('connected');
-                micStatus.textContent = 'Click to talk';
+                micStatus.textContent = 'Microphone is on mute';
                 
                 // Show mute icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'none';
