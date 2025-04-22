@@ -698,7 +698,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update UI
             micButton.classList.add('active');
-            micButton.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            
+            // Show the active icon and hide others
+            document.getElementById('mic-icon-connect').style.display = 'none';
+            document.getElementById('mic-icon-mute').style.display = 'none';
+            document.getElementById('mic-icon-active').style.display = 'inline-block';
+            
             micStatus.textContent = 'Listening...';
             isRecording = true;
             
@@ -718,7 +723,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update UI
             micButton.classList.remove('active');
-            micButton.innerHTML = '<i class="fas fa-microphone"></i>';
+            
+            // Show the mute icon and hide others
+            document.getElementById('mic-icon-connect').style.display = 'none';
+            document.getElementById('mic-icon-mute').style.display = 'inline-block';
+            document.getElementById('mic-icon-active').style.display = 'none';
+            
             micStatus.textContent = 'Click to speak';
             isRecording = false;
             
@@ -968,21 +978,56 @@ document.addEventListener('DOMContentLoaded', function() {
         statusIndicator.className = 'status-indicator';
         statusIndicator.classList.add('status-' + status);
         
+        // Get the text input container
+        const textInputContainer = document.querySelector('.text-input-container');
+        
         switch (status) {
             case 'disconnected':
                 connectionStatus.textContent = 'Disconnected';
                 micButton.classList.remove('connected');
                 micButton.classList.remove('active');
                 micStatus.textContent = 'Click to connect';
+                
+                // Show connect icon and hide others
+                document.getElementById('mic-icon-connect').style.display = 'inline-block';
+                document.getElementById('mic-icon-mute').style.display = 'none';
+                document.getElementById('mic-icon-active').style.display = 'none';
+                
+                // Hide text input
+                if (textInputContainer) {
+                    textInputContainer.classList.remove('visible');
+                }
                 break;
+                
             case 'connecting':
                 connectionStatus.textContent = 'Connecting...';
                 micStatus.textContent = 'Connecting...';
+                
+                // Show connect icon and hide others
+                document.getElementById('mic-icon-connect').style.display = 'inline-block';
+                document.getElementById('mic-icon-mute').style.display = 'none';
+                document.getElementById('mic-icon-active').style.display = 'none';
+                
+                // Hide text input
+                if (textInputContainer) {
+                    textInputContainer.classList.remove('visible');
+                }
                 break;
+                
             case 'connected':
                 connectionStatus.textContent = 'Connected';
                 micButton.classList.add('connected');
                 micStatus.textContent = 'Click to speak';
+                
+                // Show mute icon and hide others
+                document.getElementById('mic-icon-connect').style.display = 'none';
+                document.getElementById('mic-icon-mute').style.display = 'inline-block';
+                document.getElementById('mic-icon-active').style.display = 'none';
+                
+                // Show text input with fade-in effect
+                if (textInputContainer) {
+                    textInputContainer.classList.add('visible');
+                }
                 break;
         }
     }

@@ -511,7 +511,7 @@ body, html {
   width: var(--voice-btn-size);
   height: var(--voice-btn-size);
   border-radius: 50%;
-  background: linear-gradient(135deg, #dc3545, #b91c1c); /* Red for connecting */
+  background: linear-gradient(135deg, #dc3545, #b91c1c); /* Red for disconnected */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -535,13 +535,15 @@ body, html {
 }
 
 .voice-button.connected {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); /* Yellow like primary color */
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); /* Yellow for connected/muted */
   box-shadow: 0 4px 15px rgba(251, 223, 4, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  color: var(--text-dark);
 }
 
 .voice-button.active {
   background: linear-gradient(135deg, #28a745, #1e7e34); /* Green for listening */
   box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3);
+  color: #ffffff;
 }
 
 .voice-waves {
@@ -637,6 +639,12 @@ body, html {
   margin-bottom: 0.25rem;
   display: flex;
   align-items: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.text-input-container.visible {
+  opacity: 1;
 }
 
 .text-input {
