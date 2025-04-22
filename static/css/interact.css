@@ -128,6 +128,18 @@ body, html {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--glass-border);
+  background: linear-gradient(to right, rgba(251, 223, 4, 0.05), rgba(255, 255, 255, 0.5));
+}
+
+/* Logo container */
+.logo-container {
+  display: flex;
+  align-items: center;
+}
+
+.logo {
+  height: 40px;
+  width: auto;
 }
 
 /* Improved status indicator */
