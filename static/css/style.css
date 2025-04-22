@@ -1,29 +1,33 @@
-/* Main styles for LiveKit Voice Agent application */
+/* Main styles for LiveKit Voice Agent application - Light Mode */
 
 /* General styling */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f5f8fa;
+    background-color: #f8f9fa;
+    color: #212529;
 }
 
 .navbar {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
 }
 
 .card {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     border: none;
     margin-bottom: 1.5rem;
+    background-color: #ffffff;
 }
 
 .card-header {
     font-weight: 500;
+    background-color: rgba(251, 223, 4, 0.1);
 }
 
 /* Form styling */
 .form-control:focus {
-    border-color: #80bdff;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    border-color: #fbdf04;
+    box-shadow: 0 0 0 0.2rem rgba(251, 223, 4, 0.25);
 }
 
 /* Chat interface styling */
@@ -38,10 +42,11 @@ body {
 }
 
 .user-message {
-    background-color: #dcf8c6;
+    background-color: rgba(251, 223, 4, 0.15);
     border-radius: 1rem 0 1rem 1rem;
     float: right;
     clear: both;
+    color: #212529;
 }
 
 .agent-message {
@@ -49,30 +54,35 @@ body {
     border-radius: 0 1rem 1rem 1rem;
     float: left;
     clear: both;
+    color: #212529;
 }
 
 /* Button styling */
 #mic-button {
     transition: all 0.2s ease;
+    background-color: #fbdf04;
+    color: #212529;
 }
 
 #mic-button:hover {
     transform: scale(1.05);
+    background-color: #e6cc00;
 }
 
 #mic-button.active {
     animation: pulse 1.5s infinite;
+    background-color: #28a745;
 }
 
 @keyframes pulse {
     0% {
-        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        box-shadow: 0 0 0 0 rgba(251, 223, 4, 0.7);
     }
     70% {
-        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+        box-shadow: 0 0 0 10px rgba(251, 223, 4, 0);
     }
     100% {
-        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        box-shadow: 0 0 0 0 rgba(251, 223, 4, 0);
     }
 }
 
@@ -91,4 +101,48 @@ body {
     .message {
         max-width: 90%;
     }
+}
+
+/* Button styles */
+.btn-primary {
+    background-color: #fbdf04;
+    border-color: #e6cc00;
+    color: #212529;
+}
+
+.btn-primary:hover {
+    background-color: #e6cc00;
+    border-color: #d1b900;
+    color: #212529;
+}
+
+.btn-primary:focus, .btn-primary:active {
+    background-color: #d1b900;
+    border-color: #bca600;
+    color: #212529;
+    box-shadow: 0 0 0 0.2rem rgba(251, 223, 4, 0.25);
+}
+
+/* Link styles */
+a {
+    color: #e6cc00;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #d1b900;
+    text-decoration: underline;
+}
+
+/* Table styles */
+.table {
+    color: #212529;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(251, 223, 4, 0.05);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(251, 223, 4, 0.1);
 }
