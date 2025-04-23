@@ -347,6 +347,57 @@ body, html {
     hyphens: auto;
 }
 
+/* Connecting indicator styling */
+.connecting-indicator {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.connecting-indicator p {
+    margin-top: 1rem;
+    color: var(--text-dark);
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.connecting-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.connecting-spinner span {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    animation: connecting-pulse 1.4s infinite ease-in-out both;
+}
+
+.connecting-spinner span:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.connecting-spinner span:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+@keyframes connecting-pulse {
+    0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
 @keyframes pulse {
     0%, 100% {
         opacity: 1;
@@ -406,6 +457,22 @@ body, html {
     overflow-wrap: break-word;
     word-wrap: break-word;
     hyphens: auto;
+}
+
+.ai-message.streaming .ai-message-content::after {
+    content: '|';
+    display: inline-block;
+    opacity: 1;
+    animation: cursor-blink 0.8s infinite;
+    margin-left: 2px;
+    font-weight: 400;
+    color: var(--accent-color);
+    -webkit-text-fill-color: var(--accent-color);
+}
+
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
 }
 
 .ai-message-content {

@@ -58,6 +58,12 @@ document.addEventListener('DOMContentLoaded', function() {
             micStatus.textContent = 'Connecting...';
             updateStatus('connecting');
             
+            // Show connecting indicator in welcome screen
+            const connectingIndicator = document.getElementById('connecting-indicator');
+            if (connectingIndicator) {
+                connectingIndicator.style.display = 'flex';
+            }
+            
             // Connect first, then enable mic
             try {
                 // Get the token from the server with language parameter
@@ -73,6 +79,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Connect to the LiveKit room
                 await connectToRoom(data.token, data.livekit_url);
                 
+                // Hide connecting indicator
+                if (connectingIndicator) {
+                    connectingIndicator.style.display = 'none';
+                }
+                
                 // Switch from welcome screen to conversation screen
                 document.getElementById('welcome-screen').style.display = 'none';
                 document.getElementById('conversation-screen').style.display = 'block';
@@ -84,6 +95,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateStatus('disconnected');
                 showFlashMessage('Failed to connect: ' + error.message, 'error');
                 micStatus.textContent = 'Click to connect';
+                
+                // Hide connecting indicator on error
+                if (connectingIndicator) {
+                    connectingIndicator.style.display = 'none';
+                }
             }
             return;
         }
@@ -277,7 +293,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (isTranscribedSpeech) {
                         if (isAgentIdentity) {
                             // Agent speaking - use displayAgentMessage
-                            displayAgentMessage(message, true);
+                            // Extract final status for agent too
+                            const isFinal = reader.info.attributes &&
+                                reader.info.attributes['lk.transcription_final'] === 'true';
+                            
+                            // For agent, we want to stream non-final messages too
+                            // This will show text as it's being spoken
+                            displayAgentMessage(message, true, !isFinal);
                         } else {
                             // User speaking - use displayUserTranscription
                             // Extract final status
@@ -291,7 +313,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (isAgentIdentity) {
                             // If from agent, put in agent area
                             console.log("Processing DIRECT AGENT MESSAGE (non-transcription):", message);
-                            displayAgentMessage(message, false);
+                            displayAgentMessage(message, false, true);
                         } else {
                             // If from user or system, handle as system message
                             console.log("Processing OTHER MESSAGE:", message);
@@ -327,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     showFlashMessage('Received response from Caila', 'info');
                     
                     // Use displayAgentMessage to ensure correct placement in agent area
-                    displayAgentMessage(message, false);
+                    displayAgentMessage(message, false, true);
                     
                     // Also add to chat log for completeness (invisible but functional)
                     const messageDiv = document.createElement('div');
@@ -370,7 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     console.log("Showing agent response from data:", data.text);
                     // Display directly in agent area
-                    displayAgentMessage(data.text, false);
+                    displayAgentMessage(data.text, false, true);
                     
                     // Also add to chat log for history (invisible but functional)
                     const messageDiv = document.createElement('div');
@@ -634,13 +656,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // IMPROVED HANDLING: Clear separation between agent and user messages
                 if (isAgent) {
-                    // For agent messages - only display final transcriptions
-                    if (segment.final) {
-                        console.log("Displaying AGENT message from transcription");
-                        displayAgentMessage(segment.text, true);
-                    } else {
-                        console.log("Skipping non-final agent transcription");
-                    }
+                    // For agent messages - display all transcriptions, both final and non-final
+                    console.log("Displaying AGENT message from transcription (final=" + segment.final + ")");
+                    displayAgentMessage(segment.text, true, true);
                 } else {
                     // For user messages - display all transcriptions
                     console.log("Displaying USER message from transcription");
@@ -812,7 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
             displayUserMessage(text);
         } else if (type === 'agent' || type === 'agent-transcription') {
             // Agent messages go to the agent section at top
-            displayAgentMessage(text, type === 'agent-transcription');
+            displayAgentMessage(text, type === 'agent-transcription', true);
         } else if (type === 'system') {
             // System messages show as flash notifications
             showFlashMessage(text, 'info');
@@ -897,12 +915,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Variables to track streaming state
     let currentStreamingMessage = null;
-    let streamInterval = null;
-    let streamingText = '';
-    let streamingIndex = 0;
     
-    // Display agent message without streaming effect
-    function displayAgentMessage(text, isTranscription) {
+    // Display agent message with streaming effect
+    function displayAgentMessage(text, isTranscription, isStreaming = true) {
         // Add source tracking for debugging
         const callStack = new Error().stack;
         const source = callStack.split('\n')[2].trim();
@@ -910,25 +925,75 @@ document.addEventListener('DOMContentLoaded', function() {
         // Safety check
         if (!text || text.trim() === '') return;
         
-        console.log(`AGENT MESSAGE [${source}]: "${text}" (isTranscription=${isTranscription})`);
+        console.log(`AGENT MESSAGE [${source}]: "${text}" (isTranscription=${isTranscription}, isStreaming=${isStreaming})`);
         
         try {
-            // No need to restore user text display as it's been removed
-            
-            // Create a new agent message - we don't need deduplication since we only show the latest message
+            // Create a new agent message in the conversation container
             console.log("Creating new agent message");
-            const aiMessage = addMessageToConversation(text, true, false);
             
-            if (!aiMessage) {
-                console.error("Failed to create AI message");
+            // Get the conversation container
+            const conversationContainer = document.getElementById('conversation-container');
+            if (!conversationContainer) {
+                console.error("Conversation container not found");
+                return;
+            }
+            
+            // Check if we already have an AI message element
+            let aiMessage = conversationContainer.querySelector('.ai-message');
+            
+            // If no existing message or not streaming, create a new one
+            if (!aiMessage || !isStreaming) {
+                // Clear previous messages - we only show the latest AI response
+                conversationContainer.innerHTML = '';
+                
+                // Create a new AI message
+                aiMessage = document.createElement('div');
+                aiMessage.className = 'ai-message';
+                
+                // Add the message content element
+                const contentElement = document.createElement('div');
+                contentElement.className = 'ai-message-content';
+                aiMessage.appendChild(contentElement);
+                
+                // Add to the container
+                conversationContainer.appendChild(aiMessage);
+            }
+            
+            // Get the content element
+            const contentElement = aiMessage.querySelector('.ai-message-content');
+            if (!contentElement) {
+                console.error("Content element not found in AI message");
                 return;
             }
             
             // Store for reference
             currentStreamingMessage = aiMessage;
             
-            // Display text immediately
-            streamText(aiMessage, text);
+            // If streaming, update the text with animation
+            if (isStreaming) {
+                // Add streaming class
+                aiMessage.classList.add('streaming');
+                
+                // Update the text immediately - this is what the user wants
+                contentElement.textContent = text;
+            } else {
+                // Just display the full text immediately
+                contentElement.textContent = text;
+                aiMessage.classList.remove('streaming');
+            }
+            
+            // Scroll conversation to bottom
+            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+            
+            // Also add to chat log for completeness (invisible but functional)
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message agent-message';
+            messageDiv.innerHTML = `
+                <strong>Caila:</strong>
+                <p>${text}</p>
+                <small>${new Date().toLocaleTimeString()}</small>
+            `;
+            chatContainer.appendChild(messageDiv);
             
         } catch (error) {
             console.error("Error creating agent message:", error);
@@ -937,32 +1002,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Display text immediately without animation
-    function streamText(aiMessage, text) {
-        if (!aiMessage || !aiMessage.isConnected) {
-            console.error("AI message not available for streaming");
-            return;
-        }
-        
-        // Find the content element
-        const contentElement = aiMessage.querySelector('.ai-message-content');
-        if (!contentElement) {
-            console.error("Content element not found in AI message");
-            return;
-        }
-        
-        // Display the full text immediately
-        contentElement.textContent = text;
-        
-        // Remove streaming class
-        aiMessage.classList.remove('streaming');
-        
-        // Scroll conversation to bottom
-        const conversationContainer = document.getElementById('conversation-container');
-        if (conversationContainer) {
-            conversationContainer.scrollTop = conversationContainer.scrollHeight;
-        }
-    }
+    // Stream text with animation effect
+    // We've removed the streamText function since we're now updating the text directly
     
     // Removed finishStreaming function - now handled directly in streamText
 
