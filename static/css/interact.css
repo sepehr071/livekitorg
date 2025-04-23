@@ -420,9 +420,10 @@ body, html {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     overflow-y: auto;
-    max-height: calc(var(--card-height) - 180px);
+    height: 300px; /* Fixed height */
+    max-height: calc(var(--card-height) - 250px);
     padding: 1.5rem 1rem;
     margin-bottom: 1.5rem;
     scrollbar-width: thin;
@@ -457,6 +458,8 @@ body, html {
     overflow-wrap: break-word;
     word-wrap: break-word;
     hyphens: auto;
+    overflow-y: auto;
+    max-height: 100%;
 }
 
 .ai-message.streaming .ai-message-content::after {
