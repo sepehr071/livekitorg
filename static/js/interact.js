@@ -982,8 +982,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 aiMessage.classList.remove('streaming');
             }
             
-            // Scroll conversation to bottom
-            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+            // Force scroll to bottom with multiple attempts at different times
+            // This ensures we catch the scroll after content is fully rendered
+            forceScrollToBottom(conversationContainer);
             
             // Also add to chat log for completeness (invisible but functional)
             const messageDiv = document.createElement('div');
@@ -999,6 +1000,38 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("Error creating agent message:", error);
             // Fallback: just display the message directly
             addMessageToConversation(text, true, false);
+        }
+    }
+    
+    // Helper function to force scroll to bottom with multiple attempts
+    function forceScrollToBottom(container) {
+        if (!container) return;
+        
+        // Immediate scroll attempt
+        container.scrollTop = container.scrollHeight;
+        
+        // Multiple delayed scroll attempts to ensure it works
+        const scrollAttempts = [10, 50, 100, 200, 500];
+        scrollAttempts.forEach(delay => {
+            setTimeout(() => {
+                console.log(`Scrolling to bottom (delay: ${delay}ms)`);
+                container.scrollTop = container.scrollHeight;
+            }, delay);
+        });
+        
+        // Also set up a MutationObserver to watch for content changes
+        if (!window.aiMessageObserver) {
+            window.aiMessageObserver = new MutationObserver((mutations) => {
+                console.log("Content changed, scrolling to bottom");
+                container.scrollTop = container.scrollHeight;
+            });
+            
+            // Start observing the container for content changes
+            window.aiMessageObserver.observe(container, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
         }
     }
     

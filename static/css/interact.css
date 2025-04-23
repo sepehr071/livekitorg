@@ -421,18 +421,34 @@ body, html {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    overflow-y: auto;
+    overflow-y: auto !important; /* Force scrolling */
     height: 300px; /* Fixed height */
     max-height: calc(var(--card-height) - 250px);
     padding: 1.5rem 1rem;
     margin-bottom: 1.5rem;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-    scroll-behavior: smooth;
+    scroll-behavior: smooth; /* Ensure smooth scrolling */
     background-color: rgba(255, 193, 7, 0.05);
     border-radius: 16px;
     border: 1px solid rgba(255, 193, 7, 0.1);
     width: 100%;
+    overflow-anchor: auto; /* Helps keep scroll position at the bottom with new content */
+    position: relative; /* Ensure proper positioning context */
+}
+
+/* Make sure the AI message takes full width */
+.ai-message {
+    width: 100%;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    animation: fadeIn 0.3s ease-out;
+    text-align: center;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+    overflow-y: visible; /* Don't add scrollbars to the message itself */
+    max-height: none; /* Remove max-height constraint */
 }
 
 .ai-response-container::-webkit-scrollbar {
