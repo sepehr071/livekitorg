@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         this.isConnected = true;
         this.updateUI('connected');
-        this.addMessage('System', 'Connected successfully! You can now interact with the voice agent.', 'agent');
+        this.addMessage('System', 'Connected successfully! You can now interact with the Caila.', 'agent');
         
         return true;
       } catch (error) {

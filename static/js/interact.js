@@ -1,4 +1,4 @@
-// LiveKit Voice Agent Integration
+// LiveKit Voice Agent Integration with Session Persistence
 document.addEventListener('DOMContentLoaded', function() {
     // Add CSS for fade-out animations
     const style = document.createElement('style');
@@ -28,17 +28,73 @@ document.addEventListener('DOMContentLoaded', function() {
     const langDropdown = document.getElementById('lang-dropdown');
     const currentLangIndicator = document.querySelector('.current-lang');
 
+    // Connection State Management
+    const CONNECTION_STATE = {
+        DISCONNECTED: 'disconnected',
+        CONNECTING: 'connecting',
+        CONNECTED: 'connected',
+        RECONNECTING: 'reconnecting',
+        ERROR: 'error'
+    };
+
+    // Session Storage Keys
+    const STORAGE_KEYS = {
+        CONNECTION_INFO: 'livekit_connection_info',
+        ROOM_NAME: 'livekit_room_name',
+        TOKEN: 'livekit_token',
+        LIVEKIT_URL: 'livekit_url',
+        LANGUAGE: 'livekit_language',
+        CONNECTION_STATE: 'livekit_connection_state',
+        LAST_CONNECTED: 'livekit_last_connected'
+    };
+
+    // Connection info with defaults
+    const connectionInfo = {
+        state: CONNECTION_STATE.DISCONNECTED,
+        roomName: '',
+        token: '',
+        livekitUrl: '',
+        lastConnected: null
+    };
+
     // State variables
     let room = null;
     let isConnected = false;
     let isRecording = false;
-    let currentLanguage = 'de'; // Default language (German)
+    let currentLanguage = loadFromStorage(STORAGE_KEYS.LANGUAGE) || 'de'; // Default language (German)
     let lastUserInput = ''; // Store the last user input
+    let reconnectAttempts = 0;
+    let maxReconnectAttempts = 3;
+    let isReconnecting = false;
+    
+    // Add debug flag to easily enable/disable debug messages
+    const DEBUG_MODE = true;
+    
+    // Debug logger
+    function debugLog(...args) {
+        if (DEBUG_MODE) {
+            console.log('[LiveKit Debug]', ...args);
+        }
+    }
+    
+    // Load connection info from session storage if available
+    loadConnectionInfo();
 
     // Connect button handler - only used internally now
     connectButton.addEventListener('click', async () => {
         // This function is now just a fallback and shouldn't be directly used
         console.log('Warning: Connect button should not be directly clicked. Use mic button instead.');
+        
+        // If we have a stored token, try to reconnect
+        if (connectionInfo.token && connectionInfo.livekitUrl) {
+            try {
+                await connectToRoom(connectionInfo.token, connectionInfo.livekitUrl);
+            } catch (error) {
+                console.error('Reconnection failed:', error);
+                // Clear the stored token if reconnection fails
+                clearConnectionInfo();
+            }
+        }
     });
 
     // Disconnect functionality is still available through code, but button is hidden
@@ -56,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!isConnected) {
             // Show connecting status
             micStatus.textContent = 'Connecting...';
-            updateStatus('connecting');
+            updateStatus(CONNECTION_STATE.CONNECTING);
             
             // Show connecting indicator in welcome screen
             const connectingIndicator = document.getElementById('connecting-indicator');
@@ -66,18 +122,36 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Connect first, then enable mic
             try {
-                // Get the token from the server with language parameter
-                const response = await fetch(`/api/token?lang=${currentLanguage}`);
-                const data = await response.json();
+                // First check if we have a valid stored token that we can reuse
+                let token, livekitUrl;
                 
-                if (!data.success) {
-                    throw new Error(data.error || 'Failed to get token');
+                if (shouldAttemptReconnect()) {
+                    console.log('Attempting to reuse existing token');
+                    token = connectionInfo.token;
+                    livekitUrl = connectionInfo.livekitUrl;
+                } else {
+                    // Get a fresh token from the server with language parameter
+                    console.log('Requesting fresh token');
+                    const response = await fetch(`/api/token?lang=${currentLanguage}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        throw new Error(data.error || 'Failed to get token');
+                    }
+                    
+                    console.log('Received token:', data);
+                    token = data.token;
+                    livekitUrl = data.livekit_url;
                 }
                 
-                console.log('Received token:', data);
-                
                 // Connect to the LiveKit room
-                await connectToRoom(data.token, data.livekit_url);
+                await connectToRoom(token, livekitUrl);
+                
+                // Store the successful connection info
+                connectionInfo.token = token;
+                connectionInfo.livekitUrl = livekitUrl;
+                connectionInfo.lastConnected = Date.now();
+                saveConnectionInfo();
                 
                 // Hide connecting indicator
                 if (connectingIndicator) {
@@ -92,7 +166,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Just update the UI to show connected state
             } catch (error) {
                 console.error('Connection error:', error);
-                updateStatus('disconnected');
+                // Clear invalid connection info
+                clearConnectionInfo();
+                
+                updateStatus(CONNECTION_STATE.DISCONNECTED);
                 showFlashMessage('Failed to connect: ' + error.message, 'error');
                 micStatus.textContent = 'Click to connect';
                 
@@ -137,6 +214,43 @@ document.addEventListener('DOMContentLoaded', function() {
             langDropdown.classList.remove('show');
         }
     });
+    
+    // Page Lifecycle Event Listeners
+    // Handle page visibility changes to reconnect if needed
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log('Page became visible, checking connection');
+            if (!isConnected && connectionInfo.state === CONNECTION_STATE.CONNECTED) {
+                console.log('Connection state mismatch detected, attempting to reconnect');
+                attemptReconnect();
+            }
+        }
+    });
+    
+    // Handle page unload to properly clean up
+    window.addEventListener('beforeunload', () => {
+        console.log('Page unloading, storing connection state');
+        if (isConnected) {
+            // Don't actually disconnect, just store the state
+            // This allows for seamless reconnection after refresh
+            connectionInfo.state = CONNECTION_STATE.CONNECTED;
+            saveConnectionInfo();
+        }
+    });
+    
+    // Handle online/offline events
+    window.addEventListener('online', () => {
+        console.log('Browser is now online, checking connection');
+        if (!isConnected && connectionInfo.state === CONNECTION_STATE.CONNECTED) {
+            console.log('Attempting to reconnect after coming back online');
+            attemptReconnect();
+        }
+    });
+    
+    window.addEventListener('offline', () => {
+        console.log('Browser is now offline');
+        // We don't need to do anything here as LiveKit will handle connection loss
+    });
 
     // Language dropdown functionality
     document.querySelectorAll('#lang-dropdown a').forEach(link => {
@@ -158,6 +272,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log(`Changing language from ${currentLanguage} to ${newLang}`);
             currentLanguage = newLang;
+            
+            // Save language preference to storage
+            saveToStorage(STORAGE_KEYS.LANGUAGE, newLang);
             
             // Update the language indicator
             currentLangIndicator.textContent = newLang.toUpperCase();
@@ -201,10 +318,48 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Helper function to show flash messages - simplified to just log to console
+    // Helper function to show flash messages - now displays visual messages for better UX
     function showFlashMessage(message, type = 'info') {
-        console.log(`[${type}] ${message}`);
-        // No visual flash messages as per user request
+        debugLog(`[${type}] ${message}`);
+        
+        // Add a visual flash message for better user feedback
+        const flashContainer = document.querySelector('.flash-messages');
+        if (!flashContainer) {
+            // Create flash container if it doesn't exist
+            const container = document.createElement('div');
+            container.className = 'flash-messages';
+            document.body.appendChild(container);
+            
+            // Add the message
+            addFlashMessage(container, message, type);
+        } else {
+            // Add to existing container
+            addFlashMessage(flashContainer, message, type);
+        }
+    }
+    
+    // Helper function to add a flash message to the container
+    function addFlashMessage(container, message, type) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `flash-message ${type}`;
+        messageElement.innerHTML = `
+            ${message}
+            <button type="button" class="flash-close" onclick="this.parentElement.style.display='none';">&times;</button>
+        `;
+        
+        container.appendChild(messageElement);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (messageElement.parentElement) {
+                messageElement.style.display = 'none';
+                setTimeout(() => {
+                    if (messageElement.parentElement) {
+                        messageElement.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
     }
     
     // Helper function to get language name
@@ -220,6 +375,193 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         return langNames[langCode] || langCode;
     }
+    
+    // Helper function to save to sessionStorage
+    function saveToStorage(key, value) {
+        try {
+            sessionStorage.setItem(key, typeof value === 'object' ? JSON.stringify(value) : value);
+        } catch (error) {
+            console.error('Error saving to sessionStorage:', error);
+        }
+    }
+    
+    // Helper function to load from sessionStorage
+    function loadFromStorage(key) {
+        try {
+            const value = sessionStorage.getItem(key);
+            if (!value) return null;
+            
+            try {
+                // Try to parse as JSON
+                return JSON.parse(value);
+            } catch {
+                // If not JSON, return as-is
+                return value;
+            }
+        } catch (error) {
+            console.error('Error loading from sessionStorage:', error);
+            return null;
+        }
+    }
+    
+    // Function to save connection info to sessionStorage
+    function saveConnectionInfo() {
+        saveToStorage(STORAGE_KEYS.CONNECTION_INFO, connectionInfo);
+        saveToStorage(STORAGE_KEYS.CONNECTION_STATE, connectionInfo.state);
+        saveToStorage(STORAGE_KEYS.TOKEN, connectionInfo.token);
+        saveToStorage(STORAGE_KEYS.LIVEKIT_URL, connectionInfo.livekitUrl);
+        saveToStorage(STORAGE_KEYS.LAST_CONNECTED, connectionInfo.lastConnected);
+    }
+    
+    // Function to load connection info from sessionStorage
+    function loadConnectionInfo() {
+        const storedInfo = loadFromStorage(STORAGE_KEYS.CONNECTION_INFO);
+        if (storedInfo) {
+            debugLog('Found stored connection info:', storedInfo);
+            // Update our connection info object with stored values
+            connectionInfo.state = storedInfo.state || CONNECTION_STATE.DISCONNECTED;
+            connectionInfo.token = storedInfo.token || '';
+            connectionInfo.livekitUrl = storedInfo.livekitUrl || '';
+            connectionInfo.roomName = storedInfo.roomName || '';
+            connectionInfo.lastConnected = storedInfo.lastConnected || null;
+            
+            // Attempt automatic reconnection if page was refreshed while connected
+            if (connectionInfo.state === CONNECTION_STATE.CONNECTED &&
+                connectionInfo.token &&
+                connectionInfo.livekitUrl) {
+                
+                // Add visible notification for testing
+                showFlashMessage('Previous session detected. Attempting to reconnect automatically...', 'info');
+                debugLog('Session was previously connected, will attempt reconnection');
+                
+                // Show connecting indicator in welcome screen
+                const connectingIndicator = document.getElementById('connecting-indicator');
+                if (connectingIndicator) {
+                    connectingIndicator.style.display = 'flex';
+                    const textElement = connectingIndicator.querySelector('p');
+                    if (textElement) {
+                        textElement.textContent = 'Previous session detected. Reconnecting...';
+                    }
+                }
+                
+                // Use a small delay to ensure DOM is fully loaded
+                setTimeout(() => {
+                    attemptReconnect();
+                }, 500);
+            }
+        }
+    }
+    
+    // Function to clear connection info
+    function clearConnectionInfo() {
+        connectionInfo.state = CONNECTION_STATE.DISCONNECTED;
+        connectionInfo.token = '';
+        connectionInfo.livekitUrl = '';
+        connectionInfo.roomName = '';
+        connectionInfo.lastConnected = null;
+        
+        // Clear from storage
+        sessionStorage.removeItem(STORAGE_KEYS.CONNECTION_INFO);
+        sessionStorage.removeItem(STORAGE_KEYS.CONNECTION_STATE);
+        sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
+        sessionStorage.removeItem(STORAGE_KEYS.LIVEKIT_URL);
+        sessionStorage.removeItem(STORAGE_KEYS.ROOM_NAME);
+        sessionStorage.removeItem(STORAGE_KEYS.LAST_CONNECTED);
+    }
+    
+    // Function to check if we should attempt reconnection with stored token
+    function shouldAttemptReconnect() {
+        // If we have a stored token and URL
+        if (connectionInfo.token && connectionInfo.livekitUrl) {
+            // Check if the token is still likely to be valid
+            // Tokens are typically valid for an hour, but we'll use a more conservative 50 minutes
+            const TOKEN_VALIDITY_MS = 50 * 60 * 1000; // 50 minutes in ms
+            
+            if (connectionInfo.lastConnected &&
+                Date.now() - connectionInfo.lastConnected < TOKEN_VALIDITY_MS) {
+                
+                debugLog('Token appears valid, last connected: ' + new Date(connectionInfo.lastConnected).toLocaleTimeString());
+                return true;
+            } else {
+                debugLog('Token appears expired or missing timestamp');
+            }
+        } else {
+            debugLog('No stored token or URL available');
+        }
+        return false;
+    }
+    
+    // Function to attempt reconnection
+    async function attemptReconnect() {
+        if (isConnected || isReconnecting) return;
+        
+        if (!shouldAttemptReconnect()) {
+            debugLog('Cannot reconnect: no valid token available');
+            clearConnectionInfo();
+            return;
+        }
+        
+        isReconnecting = true;
+        reconnectAttempts++;
+        
+        debugLog(`Attempting reconnection (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+        updateStatus(CONNECTION_STATE.RECONNECTING);
+        
+        // Add visible notification about reconnection attempt
+        const connectingIndicator = document.getElementById('connecting-indicator');
+        if (connectingIndicator) {
+            connectingIndicator.style.display = 'flex';
+            const textElement = connectingIndicator.querySelector('p');
+            if (textElement) {
+                textElement.textContent = `Reconnecting (attempt ${reconnectAttempts}/${maxReconnectAttempts})...`;
+            }
+        }
+        
+        try {
+            // Use the stored token for reconnection
+            await connectToRoom(connectionInfo.token, connectionInfo.livekitUrl);
+            reconnectAttempts = 0;
+            showFlashMessage('Reconnected successfully', 'success');
+            
+            // Hide connecting indicator if visible
+            if (connectingIndicator) {
+                connectingIndicator.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Reconnection failed:', error);
+            
+            if (reconnectAttempts < maxReconnectAttempts) {
+                // Calculate backoff delay: 1s, 2s, 4s, etc.
+                const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000);
+                debugLog(`Will retry reconnection in ${backoffDelay}ms`);
+                
+                // Update the connecting indicator with retry information
+                if (connectingIndicator) {
+                    const textElement = connectingIndicator.querySelector('p');
+                    if (textElement) {
+                        textElement.textContent = `Reconnection failed. Retrying in ${backoffDelay/1000}s...`;
+                    }
+                }
+                
+                setTimeout(() => {
+                    attemptReconnect();
+                }, backoffDelay);
+            } else {
+                debugLog('Maximum reconnection attempts reached, giving up');
+                clearConnectionInfo();
+                updateStatus(CONNECTION_STATE.DISCONNECTED);
+                showFlashMessage('Could not reconnect. Please try again.', 'error');
+                reconnectAttempts = 0;
+                
+                // Hide connecting indicator if visible
+                if (connectingIndicator) {
+                    connectingIndicator.style.display = 'none';
+                }
+            }
+        } finally {
+            isReconnecting = false;
+        }
+    }
 
     // Connect to LiveKit room
     async function connectToRoom(token, livekitUrl) {
@@ -228,21 +570,71 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Access LiveKit classes from the global variable
             // This will be defined by the bundled script imported in interact.html
-            const { Room, RoomEvent } = window.LivekitClient;
+            const { Room, RoomEvent, ConnectionState } = window.LivekitClient;
             
-            // Create a new LiveKit room
-            room = new Room({
-                // optimize publishing bandwidth and CPU for published tracks
-                dynacast: true,
-                // automatically manage subscribed video quality
-                adaptiveStream: true
-            });
-            
-            // Set up event listeners before connecting
-            setupRoomEventListeners(RoomEvent);
-            
-            // Set up data message handler separately
-            setupDataMessageHandler(RoomEvent);
+            // If we already have a room object, try to reuse it for reconnection
+            if (room) {
+                // If the room is in a DISCONNECTED state, recreate it
+                if (room.connectionState === ConnectionState.DISCONNECTED) {
+                    console.log('Room is disconnected, creating a new Room instance');
+                    room = new Room({
+                        dynacast: true,
+                        adaptiveStream: true,
+                        // Add reconnection options
+                        reconnectPolicy: {
+                            maxRetries: 3,  // Maximum number of reconnection attempts
+                            retryBackoff: true, // Use exponential backoff
+                        }
+                    });
+                    
+                    // Set up event listeners for the new room
+                    setupRoomEventListeners(RoomEvent);
+                    setupDataMessageHandler(RoomEvent);
+                } else {
+                    console.log('Attempting to reconnect existing room');
+                    
+                    try {
+                        // Try to reconnect with the existing room
+                        await room.reconnect();
+                        console.log('Reconnection successful');
+                        
+                        // Successfully reconnected
+                        isConnected = true;
+                        updateStatus(CONNECTION_STATE.CONNECTED);
+                        return;
+                    } catch (reconnectError) {
+                        console.error('Reconnection failed, creating new room:', reconnectError);
+                        // Create a new room if reconnection fails
+                        room = new Room({
+                            dynacast: true,
+                            adaptiveStream: true,
+                            reconnectPolicy: {
+                                maxRetries: 3,
+                                retryBackoff: true,
+                            }
+                        });
+                        
+                        // Set up event listeners for the new room
+                        setupRoomEventListeners(RoomEvent);
+                        setupDataMessageHandler(RoomEvent);
+                    }
+                }
+            } else {
+                // Create a new room
+                room = new Room({
+                    dynacast: true,
+                    adaptiveStream: true,
+                    // Add reconnection options
+                    reconnectPolicy: {
+                        maxRetries: 3,
+                        retryBackoff: true,
+                    }
+                });
+                
+                // Set up event listeners before connecting
+                setupRoomEventListeners(RoomEvent);
+                setupDataMessageHandler(RoomEvent);
+            }
             
             // Pre-warm connection to speed up the actual connection
             console.log('Preparing connection...');
@@ -258,15 +650,23 @@ document.addEventListener('DOMContentLoaded', function() {
             // Set up text stream handlers after connecting (now that we have a local participant)
             setupTextStreamHandlers();
             
-            updateStatus('connected');
+            updateStatus(CONNECTION_STATE.CONNECTED);
             enableDisconnect(true);
             isConnected = true;
             
-            showFlashMessage('Connected successfully! You can now interact with the voice agent.', 'success');
+            // Store connection info
+            connectionInfo.state = CONNECTION_STATE.CONNECTED;
+            connectionInfo.token = token;
+            connectionInfo.livekitUrl = livekitUrl;
+            connectionInfo.lastConnected = Date.now();
+            saveConnectionInfo();
+            
+            showFlashMessage('Connected successfully! You can now interact with the Caila.', 'success');
         } catch (error) {
             console.error('Failed to connect to LiveKit room:', error);
-            updateStatus('disconnected');
+            updateStatus(CONNECTION_STATE.DISCONNECTED);
             showFlashMessage('Connection failed: ' + error.message, 'error');
+            throw error; // Re-throw to allow caller to handle the error
         }
     }
     
@@ -675,15 +1075,37 @@ document.addEventListener('DOMContentLoaded', function() {
         // Handle disconnection
         room.on(RoomEvent.Disconnected, () => {
             console.log('Disconnected from room');
-            updateStatus('disconnected');
+            updateStatus(CONNECTION_STATE.DISCONNECTED);
             enableDisconnect(false);
             isConnected = false;
-            showFlashMessage('Disconnected from the voice agent.', 'warning');
+            showFlashMessage('Disconnected from the Caila.', 'warning');
+            
+            // Since we're definitely disconnected, update session state
+            connectionInfo.state = CONNECTION_STATE.DISCONNECTED;
+            saveConnectionInfo();
         });
         
-        // Log connection state changes for debugging
+        // Log connection state changes for debugging and handle reconnection
         room.on(RoomEvent.ConnectionStateChanged, (state) => {
             console.log('Connection state changed:', state);
+            
+            // When connection is restored after being interrupted
+            if (state === 'connected' && connectionInfo.state === CONNECTION_STATE.RECONNECTING) {
+                console.log('Reconnection successful');
+                isConnected = true;
+                updateStatus(CONNECTION_STATE.CONNECTED);
+                showFlashMessage('Reconnected successfully', 'success');
+            }
+            
+            // When connection is interrupted but may reconnect
+            if (state === 'reconnecting') {
+                console.log('Connection interrupted, attempting to reconnect');
+                isConnected = false;
+                updateStatus(CONNECTION_STATE.RECONNECTING);
+                showFlashMessage('Connection interrupted. Attempting to reconnect...', 'warning');
+                connectionInfo.state = CONNECTION_STATE.RECONNECTING;
+                saveConnectionInfo();
+            }
         });
     }
 
@@ -704,8 +1126,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Always ensure we reset the state even if there were errors
                 room = null;
                 isConnected = false;
-                updateStatus('disconnected');
+                updateStatus(CONNECTION_STATE.DISCONNECTED);
                 enableDisconnect(false);
+                
+                // Update connection info
+                connectionInfo.state = CONNECTION_STATE.DISCONNECTED;
+                saveConnectionInfo();
                 
                 // Switch back to welcome screen
                 document.getElementById('welcome-screen').style.display = 'flex';
@@ -1046,7 +1472,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const textInputContainer = document.querySelector('.text-input-container');
         
         switch (status) {
-            case 'disconnected':
+            case CONNECTION_STATE.DISCONNECTED:
                 micButton.classList.remove('connected');
                 micButton.classList.remove('active');
                 micStatus.textContent = 'Connect';
@@ -1066,8 +1492,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('conversation-screen').style.display = 'none';
                 break;
                 
-            case 'connecting':
-                micStatus.textContent = 'Connecting';
+            case CONNECTION_STATE.CONNECTING:
+                micStatus.textContent = 'Connecting...';
                 
                 // Show connect icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'inline-block';
@@ -1080,7 +1506,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 break;
                 
-            case 'connected':
+            case CONNECTION_STATE.RECONNECTING:
+                micStatus.textContent = 'Reconnecting...';
+                micButton.classList.remove('connected');
+                
+                // Show connect icon and hide others
+                document.getElementById('mic-icon-connect').style.display = 'inline-block';
+                document.getElementById('mic-icon-mute').style.display = 'none';
+                document.getElementById('mic-icon-active').style.display = 'none';
+                
+                // No need to change the screens here - keep them as they are
+                break;
+                
+            case CONNECTION_STATE.CONNECTED:
                 micButton.classList.add('connected');
                 micStatus.textContent = 'Microphone is on mute';
                 
@@ -1097,6 +1535,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Show conversation screen, hide welcome screen
                 document.getElementById('welcome-screen').style.display = 'none';
                 document.getElementById('conversation-screen').style.display = 'block';
+                break;
+                
+            case CONNECTION_STATE.ERROR:
+                micButton.classList.remove('connected');
+                micButton.classList.remove('active');
+                micStatus.textContent = 'Connection failed';
+                
+                // Show connect icon and hide others
+                document.getElementById('mic-icon-connect').style.display = 'inline-block';
+                document.getElementById('mic-icon-mute').style.display = 'none';
+                document.getElementById('mic-icon-active').style.display = 'none';
+                
+                // Hide text input
+                if (textInputContainer) {
+                    textInputContainer.classList.remove('visible');
+                }
                 break;
         }
     }
@@ -1117,19 +1571,46 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json'
                     }
                 });
+                console.log('Heartbeat sent successfully');
+                
+                // If connection info exists but state shows disconnected while we're actually connected
+                // Update the connection state to reflect reality
+                if (connectionInfo.state !== CONNECTION_STATE.CONNECTED) {
+                    connectionInfo.state = CONNECTION_STATE.CONNECTED;
+                    connectionInfo.lastConnected = Date.now();
+                    saveConnectionInfo();
+                }
             } catch (error) {
                 console.error('Heartbeat error:', error);
+                
+                // If we get a heartbeat error while connected, the server session might be invalid
+                // Check if the room is still in a good state
+                if (room && isConnected) {
+                    console.log('Checking room connection state after heartbeat failure');
+                    if (room.connectionState !== 'connected') {
+                        console.log('Room appears to be disconnected, attempting to reconnect');
+                        attemptReconnect();
+                    }
+                }
             }
         }
     }, 60000);
 
     // Initialize with disconnected status
-    updateStatus('disconnected');
+    updateStatus(CONNECTION_STATE.DISCONNECTED);
     
     // Initialize language indicator
-    currentLangIndicator.textContent = 'DE'; // German
+    currentLangIndicator.textContent = currentLanguage.toUpperCase();
     
     // Initialize screens - show welcome screen, hide conversation screen
     document.getElementById('welcome-screen').style.display = 'flex';
     document.getElementById('conversation-screen').style.display = 'none';
+    
+    // Try auto-reconnect if we have connection info
+    if (connectionInfo.token && connectionInfo.livekitUrl &&
+        connectionInfo.state === CONNECTION_STATE.CONNECTED) {
+        console.log('Found previous connection, attempting to reconnect automatically');
+        // Small delay to ensure page is fully loaded
+        setTimeout(attemptReconnect, 1000);
+    }
 });

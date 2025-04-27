@@ -26,7 +26,7 @@ const livekitClient = {
       
       this.isConnected = true;
       this.updateUI('connected');
-      this.addMessage('System', 'Connected successfully! You can now interact with the voice agent.', 'agent');
+      this.addMessage('System', 'Connected successfully! You can now interact with the Caila', 'agent');
       
       return true;
     } catch (error) {
@@ -82,7 +82,7 @@ const livekitClient = {
         this.isConnected = false;
         this.isRecording = false;
         this.updateUI('disconnected');
-        this.addMessage('System', 'Disconnected from the voice agent.', 'agent');
+        this.addMessage('System', 'Disconnected from the Caila.', 'agent');
       })
       .on(RoomEvent.AudioPlaybackStatusChanged, () => {
         // Handle audio playback status changes
