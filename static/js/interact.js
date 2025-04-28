@@ -1526,9 +1526,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Display agent message with streaming effect
     function displayAgentMessage(text, isTranscription, isStreaming = true) {
-        // Add source tracking for debugging
-        const callStack = new Error().stack;
-        const source = callStack.split('\n')[2].trim();
+        // Add source tracking for debugging - with browser compatibility
+        let source = "unknown";
+        try {
+            const callStack = new Error().stack;
+            if (callStack) {
+                // Stack trace is available (Chrome, Firefox, etc.)
+                source = callStack.split('\n')[2]?.trim() || "unknown";
+            } else {
+                // Stack trace unavailable (Safari)
+                source = "browser-without-stack-support";
+            }
+        } catch (e) {
+            // If any error occurs during stack handling, use a fallback
+            source = "stack-error";
+        }
         
         // Safety check
         if (!text || text.trim() === '') return;
