@@ -12,20 +12,6 @@
 <body>
     <div class="interact-page">
         <div class="container">
-            <!-- Flash messages -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="flash-messages">
-                        {% for category, message in messages %}
-                            <div class="flash-message {{ category if category != 'message' else 'info' }}">
-                                {{ message }}
-                                <button type="button" class="flash-close" onclick="this.parentElement.style.display='none';">&times;</button>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-            
             <div class="glass-card">
                 <div class="connection-status-bar">
                     <div class="logo-container">

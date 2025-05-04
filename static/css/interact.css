@@ -205,27 +205,44 @@ body, html {
     gap: 10px;
 }
 
-/* Bottom controls - moved from header to bottom of page */
+/* Bottom controls - moved from header to bottom of page - consistent styling */
 .bottom-controls {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 20px;
-    margin-top: 15px;
-    padding: 10px;
+    margin-top: 10px;
+    padding: 12px;
     border-top: 1px solid var(--glass-border);
+    background-color: transparent;
 }
 
-/* Consistent gray text for bottom control buttons */
+/* Minimal styling for all bottom control buttons */
 .bottom-controls .control-toggle,
 .bottom-controls .lang-btn {
-    color: #666;
-    font-size: 0.9rem;
+    color: #555;
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background-color: transparent;
+    border: none;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.75;
+}
+
+.bottom-controls .control-toggle:hover,
+.bottom-controls .lang-btn:hover {
+    background-color: rgba(251, 223, 4, 0.1);
+    opacity: 1;
 }
 
 .bottom-controls .toggle-label {
-    color: #666;
+    color: #555;
     font-weight: normal;
+    font-size: 0.8rem;
 }
 
 /* TTS Toggle */
@@ -245,17 +262,17 @@ body, html {
 .control-toggle {
     background: none;
     border: none;
-    color: #6c757d;
+    color: #555;
     cursor: pointer;
-    padding: 5px 10px;
+    padding: 5px 8px;
     border-radius: 4px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
 }
 
 .control-toggle:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(251, 223, 4, 0.1);
 }
 
 .control-toggle.active {
@@ -270,78 +287,75 @@ body, html {
     font-size: 0.8rem;
 }
 
-/* Language dropdown */
+/* Language dropdown - improved styling */
 .language-dropdown {
   position: relative;
   display: inline-block;
 }
 
 .lang-btn {
-  color: var(--text-muted);
-  font-size: 1.1rem;
-  transition: all 0.3s ease;
+  color: #666;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 0 10px;
-  height: 32px;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  cursor: pointer;
 }
 
 .current-lang {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 500;
   text-transform: uppercase;
 }
 
 .lang-btn:hover {
-  color: var(--text-dark);
-  background: rgba(251, 223, 4, 0.2);
+  color: #333;
+  background-color: rgba(240, 242, 245, 0.9);
 }
 
 .dropdown-content {
   display: none;
   position: absolute;
   right: 0;
-  top: 40px;
-  min-width: 120px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 12px;
-  box-shadow: var(--glass-shadow);
-  border: 1px solid var(--glass-border);
+  bottom: 40px;
+  min-width: 150px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   z-index: 100;
   overflow: hidden;
 }
 
 .dropdown-content a {
-  color: var(--text-dark);
+  color: #333;
   padding: 10px 15px;
   text-decoration: none;
   display: block;
   font-size: 0.9rem;
   transition: all 0.2s ease;
-  text-align: center;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dropdown-content a:last-child {
+  border-bottom: none;
 }
 
 .dropdown-content a.disabled {
-  color: var(--text-muted);
-  opacity: 0.6;
+  color: #999;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
 .dropdown-content a:not(.disabled):hover {
-  background: rgba(0, 0, 0, 0.05);
+  background-color: rgba(240, 242, 245, 0.7);
 }
 
 .dropdown-content.show {
   display: block;
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.2s ease;
 }
 
 /* Logout button */
@@ -365,13 +379,13 @@ body, html {
 }
 
 .glass-card-content {
-   padding: 0; /* Remove padding */
+   padding: 1.5rem; /* Restore main padding */
    display: flex;
    flex-direction: column;
    flex-grow: 1;
    overflow: hidden;
    position: relative;
-   background-color: white; /* Clean white background like ChatGPT */
+   background-color: #fffef0; /* Very light yellow background */
 }
 
 /* Chat Container - Hidden but kept for functionality */
@@ -558,17 +572,17 @@ body, html {
 
 .user-message {
     margin-left: auto;
-    background-color: rgba(240, 242, 245, 0.7); /* Darker background for user messages */
     width: 100%;
     justify-content: flex-end;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 0;
 }
 
 .agent-message {
     margin-right: auto;
     width: 100%;
-    background-color: white; /* Pure white background for AI messages */
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background-color: transparent; /* No background for AI messages */
+    border-bottom: none;
+    padding: 0;
 }
 
 /* New message highlight animation */
@@ -604,7 +618,7 @@ body, html {
 }
 
 .message-bubble {
-    padding: 8px 16px;
+    padding: 12px 16px;
     position: relative;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -616,11 +630,16 @@ body, html {
     color: #333;
     text-align: right;
     margin-left: auto;
+    background-color: rgba(240, 242, 245, 0.7);
+    border-radius: 18px; /* Very rounded corners */
+    padding: 8px 12px;
 }
 
 .agent-message .message-bubble {
     color: #333;
     margin-right: auto;
+    background: transparent; /* No background */
+    padding: 8px 0; /* Less padding */
 }
 
 .message-time {

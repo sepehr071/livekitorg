@@ -517,48 +517,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return text;
     }
     
-    // Helper function to show flash messages - now displays visual messages for better UX
+    // Helper function to log messages to console only (no UI notifications)
     function showFlashMessage(message, type = 'info') {
+        // Only log to console, no UI display as per requirements
         debugLog(`[${type}] ${message}`);
-        
-        // Add a visual flash message for better user feedback
-        const flashContainer = document.querySelector('.flash-messages');
-        if (!flashContainer) {
-            // Create flash container if it doesn't exist
-            const container = document.createElement('div');
-            container.className = 'flash-messages';
-            document.body.appendChild(container);
-            
-            // Add the message
-            addFlashMessage(container, message, type);
-        } else {
-            // Add to existing container
-            addFlashMessage(flashContainer, message, type);
-        }
-    }
-    
-    // Helper function to add a flash message to the container
-    function addFlashMessage(container, message, type) {
-        const messageElement = document.createElement('div');
-        messageElement.className = `flash-message ${type}`;
-        messageElement.innerHTML = `
-            ${message}
-            <button type="button" class="flash-close" onclick="this.parentElement.style.display='none';">&times;</button>
-        `;
-        
-        container.appendChild(messageElement);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (messageElement.parentElement) {
-                messageElement.style.display = 'none';
-                setTimeout(() => {
-                    if (messageElement.parentElement) {
-                        messageElement.remove();
-                    }
-                }, 300);
-            }
-        }, 5000);
     }
     
     // Helper function to get language name
