@@ -143,19 +143,84 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Removed auto-connect functionality per requirements
 
-    // Connect button handler - only used internally now
+    // Connect button handler - now used directly from welcome screen
     connectButton.addEventListener('click', async () => {
-        // This function is now just a fallback and shouldn't be directly used
-        console.log('Warning: Connect button should not be directly clicked. Use mic button instead.');
+        // Show connecting status
+        micStatus.textContent = 'Connecting...';
+        updateStatus(CONNECTION_STATE.CONNECTING);
+        logConnection('INFO', "User initiated connection via connect button");
         
-        // If we have a stored token, try to reconnect
-        if (connectionInfo.token && connectionInfo.livekitUrl) {
-            try {
-                await connectToRoom(connectionInfo.token, connectionInfo.livekitUrl);
-            } catch (error) {
-                console.error('Reconnection failed:', error);
-                // Clear the stored token if reconnection fails
-                clearConnectionInfo();
+        // Show connecting indicator in welcome screen
+        const connectingIndicator = document.getElementById('connecting-indicator');
+        if (connectingIndicator) {
+            connectingIndicator.style.display = 'flex';
+            logConnection('DEBUG', "Showing connecting indicator");
+        }
+        
+        // Connect to room
+        try {
+            // Always request a fresh token with newConnection=true
+            logConnection('INFO', `Requesting new token with language=${currentLanguage}`);
+            
+            // Get a fresh token from the server with language parameter and newConnection=true
+            const response = await fetch(`/api/token?lang=${currentLanguage}&newConnection=true`);
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to get token');
+            }
+            
+            logConnection('INFO', `Received token for room: ${data.room}`);
+            logConnection('DEBUG', "Token response:", data);
+            
+            const token = data.token;
+            const livekitUrl = data.livekit_url;
+            
+            // If we have an existing connection, disconnect from it first
+            if (room) {
+                logConnection('INFO', "Disconnecting from previous room before connecting to new room");
+                try {
+                    await room.disconnect(true);
+                } catch (disconnectError) {
+                    logConnection('WARN', "Error disconnecting from previous room:", disconnectError);
+                    // Continue anyway to establish new connection
+                }
+            }
+            
+            // Connect to the LiveKit room with the new token
+            await connectToRoom(token, livekitUrl);
+            
+            // Store the successful connection info
+            connectionInfo.token = token;
+            connectionInfo.livekitUrl = livekitUrl;
+            connectionInfo.lastConnected = Date.now();
+            saveConnectionInfo();
+            
+            // Hide connecting indicator
+            if (connectingIndicator) {
+                connectingIndicator.style.display = 'none';
+            }
+            
+            // Switch from welcome screen to conversation screen
+            document.getElementById('welcome-screen').style.display = 'none';
+            document.getElementById('conversation-screen').style.display = 'block';
+            
+            // Show voice button, text input and controls after connection
+            document.querySelector('.voice-button-container').style.display = 'flex';
+            document.querySelector('.text-input-container').style.display = 'flex';
+            document.querySelector('.bottom-controls').style.display = 'flex';
+        } catch (error) {
+            console.error('Connection error:', error);
+            // Clear invalid connection info
+            clearConnectionInfo();
+            
+            updateStatus(CONNECTION_STATE.DISCONNECTED);
+            showFlashMessage('Failed to connect: ' + error.message, 'error');
+            micStatus.textContent = 'Click to connect';
+            
+            // Hide connecting indicator on error
+            if (connectingIndicator) {
+                connectingIndicator.style.display = 'none';
             }
         }
     });
@@ -232,6 +297,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Switch from welcome screen to conversation screen
                 document.getElementById('welcome-screen').style.display = 'none';
                 document.getElementById('conversation-screen').style.display = 'block';
+                
+                // Show voice button, text input and controls after connection
+                document.querySelector('.voice-button-container').style.display = 'flex';
+                document.querySelector('.text-input-container').style.display = 'flex';
+                document.querySelector('.bottom-controls').style.display = 'flex';
                 
                 // Don't automatically start recording after connection
                 // Just update the UI to show connected state
@@ -2577,6 +2647,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Show welcome screen, hide conversation screen
                 document.getElementById('welcome-screen').style.display = 'flex';
                 document.getElementById('conversation-screen').style.display = 'none';
+                
+                // Hide voice button container
+                const voiceButtonContainer = document.querySelector('.voice-button-container');
+                if (voiceButtonContainer) {
+                    voiceButtonContainer.style.display = 'none';
+                }
+                
+                // Hide bottom controls
+                const bottomControls = document.querySelector('.bottom-controls');
+                if (bottomControls) {
+                    bottomControls.style.display = 'none';
+                }
                 break;
                 
             case CONNECTION_STATE.CONNECTING:

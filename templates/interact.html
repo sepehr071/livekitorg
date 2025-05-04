@@ -29,36 +29,9 @@
             <div class="glass-card">
                 <div class="connection-status-bar">
                     <div class="logo-container">
-                        <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Carema Logo" class="logo">
+                        <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Calia Logo" class="logo">
                     </div>
                     <div class="header-controls">
-                        <div class="tts-toggle">
-                            <button id="tts-toggle-btn" class="control-toggle" title="Toggle Text-to-Speech">
-                                <i class="fas fa-volume-up" id="tts-icon"></i>
-                                <span class="toggle-label">TTS</span>
-                            </button>
-                        </div>
-                        <div class="language-dropdown">
-                            <button class="lang-btn" id="lang-btn" title="Change Language">
-                                <i class="fas fa-globe"></i>
-                                <span class="current-lang">EN</span>
-                            </button>
-                            <div class="dropdown-content" id="lang-dropdown">
-                                <a href="#" data-lang="de">German</a>
-                                <a href="#" data-lang="nl" class="disabled">Dutch</a>
-                                <a href="#" data-lang="pl" class="disabled">Polish</a>
-                                <a href="#" data-lang="it" class="disabled">Italian</a>
-                                <a href="#" data-lang="fr" class="disabled">French</a>
-                                <a href="#" data-lang="en" class="disabled">English</a>
-                                <a href="#" data-lang="es" class="disabled">Spanish</a>
-                            </div>
-                        </div>
-                        <div class="download-toggle">
-                            <button id="download-btn" class="control-toggle" title="Download Conversation">
-                                <i class="fas fa-download"></i>
-                                <span class="toggle-label">Save</span>
-                            </button>
-                        </div>
                         <a href="/logout" class="logout-btn" title="Logout">
                             <i class="fas fa-sign-out-alt"></i>
                         </a>
@@ -69,7 +42,9 @@
                     <!-- Welcome screen (shown before connection) -->
                     <div class="welcome-screen" id="welcome-screen">
                         <div class="welcome-content">
-                            <h1>Welcome to Carema Assistant</h1>
+                            <h1>Welcome to Calia</h1>
+                            <!-- Connect button visible on welcome screen -->
+                            <button id="connect-button" class="connect-button">Connect</button>
                             <!-- Connecting indicator (initially hidden) -->
                             <div class="connecting-indicator" id="connecting-indicator" style="display: none;">
                                 <div class="connecting-spinner">
@@ -100,7 +75,7 @@
                         </div>
                     </div>
                     
-                    <div class="voice-button-container">
+                    <div class="voice-button-container" style="display: none;">
                         <div class="voice-controls">
                             <button id="interrupt-button" class="control-button" title="Interrupt Agent" style="display: none;">
                                 <i class="fas fa-hand-paper"></i>
@@ -131,21 +106,49 @@
                         </div>
                     </div>
                     
-                    <div class="text-input-container">
+                    <div class="text-input-container" style="display: none;">
                         <input type="text" id="text-input" class="text-input" placeholder="Type your message here...">
                         <button id="send-button" class="send-button">
                             <i class="fas fa-paper-plane"></i>
                         </button>
+                    </div>
+                    
+                    <!-- Controls moved from header to below text input -->
+                    <div class="bottom-controls" style="display: none;">
+                        <div class="tts-toggle">
+                            <button id="tts-toggle-btn" class="control-toggle" title="Toggle Text-to-Speech">
+                                <i class="fas fa-volume-up" id="tts-icon"></i>
+                                <span class="toggle-label">TTS</span>
+                            </button>
+                        </div>
+                        <div class="language-dropdown">
+                            <button class="lang-btn" id="lang-btn" title="Change Language">
+                                <i class="fas fa-globe"></i>
+                                <span class="current-lang">EN</span>
+                            </button>
+                            <div class="dropdown-content" id="lang-dropdown">
+                                <a href="#" data-lang="de">German</a>
+                                <a href="#" data-lang="nl" class="disabled">Dutch</a>
+                                <a href="#" data-lang="pl" class="disabled">Polish</a>
+                                <a href="#" data-lang="it" class="disabled">Italian</a>
+                                <a href="#" data-lang="fr" class="disabled">French</a>
+                                <a href="#" data-lang="en" class="disabled">English</a>
+                                <a href="#" data-lang="es" class="disabled">Spanish</a>
+                            </div>
+                        </div>
+                        <div class="download-toggle">
+                            <button id="download-btn" class="control-toggle" title="Download Conversation">
+                                <i class="fas fa-download"></i>
+                                <span class="toggle-label">Save</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Hidden elements for functionality -->
-    <div style="display: none;">
-        <button id="connect-button">Connect</button>
-    </div>
+    <!-- No need for hidden connect button as it's now visible in the welcome screen -->
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
