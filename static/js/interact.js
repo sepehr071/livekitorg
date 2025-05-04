@@ -488,8 +488,8 @@ document.addEventListener('DOMContentLoaded', function() {
             URL.revokeObjectURL(url);
         }, 100);
         
-        // Show confirmation message
-        showFlashMessage('Conversation downloaded successfully', 'success');
+        // Log to console instead of showing UI message
+        console.log('Conversation downloaded successfully');
     }
     
     // Format conversation history as text
@@ -809,17 +809,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update scroll button visibility immediately to avoid flicker
         const scrollButton = document.getElementById('scroll-to-bottom');
-        const unreadBadge = document.querySelector('.unread-badge');
         
         if (scrollButton) {
             scrollButton.classList.remove('visible');
         }
         
-        if (unreadBadge) {
-            unreadBadge.classList.remove('visible');
-            unreadBadge.textContent = '0';
-            unreadMessageCount = 0;
-        }
+        // Reset unread count
+        unreadMessageCount = 0;
         
         // Disable smooth scrolling for very large conversations for performance
         const shouldUseSmooth = smooth && conversationHistory.length < 200;
@@ -893,19 +889,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // We're not at the bottom and auto-scroll is disabled, so increment unread count
             unreadMessageCount++;
             
-            // Update unread badge with better visibility for larger counts
-            if (scrollButton && unreadBadge) {
-                // Use different formatting for larger numbers
-                if (unreadMessageCount > 99) {
-                    unreadBadge.textContent = '99+';
-                } else if (unreadMessageCount > 9) {
-                    unreadBadge.textContent = unreadMessageCount;
-                } else {
-                    unreadBadge.textContent = unreadMessageCount;
-                }
-                
-                unreadBadge.classList.add('visible');
-            }
+            // No longer updating unread badge - it's hidden by CSS
             
             // Make sure scroll button is visible and animated for attention
             if (scrollButton) {
@@ -1594,6 +1578,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Remove typing indicator first
                     removeTypingIndicator();
                     
+                    // Make sure interrupt button is hidden when typing is done
+                    if (interruptButton) {
+                        interruptButton.style.display = 'none';
+                    }
+                    
                     // Add message to conversation history (not partial since it's a complete message)
                     displayAgentMessage(message, false, false);
                 } catch (error) {
@@ -1646,6 +1635,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Remove typing indicator first
                     removeTypingIndicator();
+                    
+                    // Make sure interrupt button is hidden when typing is done
+                    if (interruptButton) {
+                        interruptButton.style.display = 'none';
+                    }
                     
                     // Add to conversation history as a complete message (not partial)
                     displayAgentMessage(data.text, false, false);
@@ -2526,6 +2520,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // For final messages, add as a new message
                     addToConversationHistory(text, true);
+                    
+                    // Make sure interrupt button is hidden for final messages
+                    if (!isTranscription && interruptButton) {
+                        interruptButton.style.display = 'none';
+                    }
                 }
             } catch (error) {
                 console.error("Error displaying agent message:", error);
@@ -2794,11 +2793,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Update UI
-            showFlashMessage('Interrupted agent', 'info');
+            // Log to console instead of showing UI message
+            console.log('Interrupted agent');
         } catch (error) {
             logConnection('ERROR', `Failed to interrupt agent: ${error.message}`);
-            showFlashMessage('Failed to interrupt agent', 'error');
+            console.log('Failed to interrupt agent');
         }
     }
     
