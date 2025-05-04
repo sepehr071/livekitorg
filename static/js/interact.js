@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Current log level - change to adjust verbosity
     const CURRENT_LOG_LEVEL = LOG_LEVELS.DEBUG;
     
-    // Enhanced logger with multiple levels and UI integration
+    // Enhanced logger with multiple levels - UI integration removed
     function logConnection(level, ...args) {
         const timestamp = new Date().toISOString();
         const prefix = `[${timestamp}] [LiveKit ${level}]`;
@@ -113,24 +113,10 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(prefix, ...args);
         }
         
-        // Only display certain critical logs in the UI
-        if (level === 'ERROR') {
-            showFlashMessage(args.join(' '), level.toLowerCase());
-        } else if (level === 'WARN') {
-            // Check if this is a misclassification warning
-            const message = args.join(' ');
-            const isMisclassificationWarning =
-                message.includes('misclassif') ||
-                message.includes('classif') && (message.includes('agent') || message.includes('user')) ||
-                message.includes('likely user') ||
-                message.includes('likely agent') ||
-                message.includes('similarity') ||
-                message.includes('redirect');
-                
-            // Only show warning toast for non-misclassification warnings
-            if (!isMisclassificationWarning) {
-                showFlashMessage(message, level.toLowerCase());
-            }
+        // No UI notifications as per requirements, just log everything to console
+        // For debugging purposes only
+        if (DEBUG_MODE) {
+            console.log(prefix, ...args);
         }
     }
     
@@ -407,7 +393,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Skip if the language option is disabled
             if (e.target.classList.contains('disabled')) {
-                showFlashMessage('This language is currently not available', 'warning');
+                // No UI notification as per requirements
+                console.log('This language is currently not available');
                 return;
             }
             
@@ -427,8 +414,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update the language indicator
             currentLangIndicator.textContent = newLang.toUpperCase();
             
-            // Show a brief flash notification about language change
-            showFlashMessage(`Language changed to ${getLangName(newLang)}`, 'info');
+            // No UI notification as per requirements
+            console.log(`Language changed to ${getLangName(newLang)}`);
             
             // If connected, send language change instruction silently
             if (isConnected && room && room.localParticipant) {
@@ -459,7 +446,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.log('Language instruction sent successfully with publishData');
                     } catch (fallbackError) {
                         console.error('Error sending language instruction with publishData:', fallbackError);
-                        showFlashMessage('Failed to change language. Please try again.', 'error');
+                        // No UI notification as per requirements
+                        console.log('Failed to change language. Please try again.');
                     }
                 }
             }
@@ -519,8 +507,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Helper function to log messages to console only (no UI notifications)
     function showFlashMessage(message, type = 'info') {
-        // Only log to console, no UI display as per requirements
-        debugLog(`[${type}] ${message}`);
+        // Only log to console, no UI display as required
+        // This ensures notifications don't appear in the UI
+        console.log(`[${type}] ${message}`);
     }
     
     // Helper function to get language name
@@ -643,8 +632,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update UI
         updateTtsToggleDisplay();
         
-        // Show feedback
-        showFlashMessage(`Text-to-speech audio ${isTtsMuted ? 'muted' : 'unmuted'}`, 'info');
+        // No UI notification as per requirements
+        console.log(`Text-to-speech audio ${isTtsMuted ? 'muted' : 'unmuted'}`);
     }
     
     // Initialize language preference and TTS state on load
@@ -1092,7 +1081,8 @@ document.addEventListener('DOMContentLoaded', function() {
         logConnection('INFO', `Rendering all ${conversationHistory.length} messages`);
         
         // Show loading indicator
-        showFlashMessage('Loading all messages...', 'info');
+        // No UI notification as per requirements
+        console.log('Loading all messages...');
         
         // Use setTimeout to allow UI to update before heavy operation
         setTimeout(() => {
@@ -1117,7 +1107,8 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 isProcessingScroll = false;
                 maintainScrollPosition();
-                showFlashMessage('All messages loaded', 'success');
+                // No UI notification as per requirements
+                console.log('All messages loaded');
             }, 50);
         }, 100);
     }
@@ -1586,8 +1577,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Display agent message directly in the AGENT area
                     logConnection('INFO', "Showing agent response in UI from CHAT");
                     
-                    // Show notification that we received a message
-                    showFlashMessage('Received response from agent', 'info');
+                    // No UI notification as per requirements
+                    console.log('Received response from agent');
                     
                     // Remove typing indicator first
                     removeTypingIndicator();
@@ -1857,7 +1848,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     logConnection('WARN', "Connection interrupted, attempting to reconnect");
                     isConnected = false;
                     updateStatus(CONNECTION_STATE.RECONNECTING);
-                    showFlashMessage('Connection interrupted. Attempting to reconnect...', 'warning');
+                    // No UI notification as per requirements
+                    console.log('Connection interrupted. Attempting to reconnect...');
                     connectionInfo.state = CONNECTION_STATE.RECONNECTING;
                     saveConnectionInfo();
                     break;
@@ -1867,7 +1859,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateStatus(CONNECTION_STATE.DISCONNECTED);
                     enableDisconnect(false);
                     isConnected = false;
-                    showFlashMessage('Connection failed. Please try connecting again.', 'error');
+                    // No UI notification as per requirements
+                    console.log('Connection failed. Please try connecting again.');
                     break;
             }
         });
@@ -1879,7 +1872,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Special logging for agent connections
             if (participant.identity && participant.identity.startsWith('agent')) {
                 logConnection('INFO', "✓ Agent joined the room");
-                showFlashMessage('Agent connected to the room', 'info');
+                // No UI notification as per requirements
+                console.log('Agent connected to the room');
             }
         });
         
@@ -1889,7 +1883,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Special logging for agent disconnections
             if (participant.identity && participant.identity.startsWith('agent')) {
                 logConnection('WARN', "⚠ Agent left the room");
-                showFlashMessage('Agent disconnected from the room', 'warning');
+                // No UI notification as per requirements
+                console.log('Agent disconnected from the room');
             }
         });
         
@@ -1909,8 +1904,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Special logging for agent audio
                 if (participant.identity && participant.identity.startsWith('agent')) {
                     logConnection('INFO', "✓ Agent audio connected");
-                    // This is the ONLY place where we show the success message - after audio is ready
-                    showFlashMessage('Connected successfully! You can now interact with the Caila.', 'success');
+                    // No UI notification as per requirements
+                    console.log('Connected successfully! You can now interact with the Caila.');
                     
                     // Track agent speaking state
                     isAgentSpeaking = true;
@@ -1942,7 +1937,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (track.kind === 'audio' && participant.identity && participant.identity.startsWith('agent')) {
                 logConnection('WARN', "⚠ Agent audio disconnected");
-                showFlashMessage('Agent audio disconnected', 'warning');
+                // No UI notification as per requirements
+                console.log('Agent audio disconnected');
             }
         });
         
@@ -2111,7 +2107,8 @@ document.addEventListener('DOMContentLoaded', function() {
             updateStatus(CONNECTION_STATE.DISCONNECTED);
             enableDisconnect(false);
             isConnected = false;
-            showFlashMessage('Disconnected from the Caila.', 'warning');
+            // No UI notification as per requirements
+            console.log('Disconnected from the Caila.');
             
             // Since we're definitely disconnected, update session state
             connectionInfo.state = CONNECTION_STATE.DISCONNECTED;
@@ -2154,7 +2151,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 await room.disconnect(true);
                 
                 logConnection('INFO', 'Disconnected from room successfully');
-                showFlashMessage('Disconnected from voice agent', 'info');
+                // No UI notification as per requirements
+                console.log('Disconnected from voice agent');
             } catch (error) {
                 logConnection('ERROR', `Error during disconnect: ${error.message}`, error);
             } finally {
@@ -2198,7 +2196,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Status text removed
             isRecording = true;
             
-            showFlashMessage('Microphone activated. Speak now...', 'info');
+            // No UI notification as per requirements
+            console.log('Microphone activated. Speak now...');
         } catch (error) {
             console.error('Error accessing microphone:', error);
             showFlashMessage('Failed to access microphone: ' + error.message, 'error');
@@ -2223,7 +2222,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Status text removed
             isRecording = false;
             
-            showFlashMessage('Microphone deactivated.', 'info');
+            // No UI notification as per requirements
+            console.log('Microphone deactivated.');
         }
     }
 
@@ -2233,7 +2233,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text) return;
         
         if (!isConnected) {
-            showFlashMessage('Please connect first before sending messages.', 'warning');
+            // No UI notification as per requirements
+            console.log('Please connect first before sending messages.');
             return;
         }
         
@@ -2275,7 +2276,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log('Text message sent successfully with publishData');
                 } catch (fallbackError) {
                     console.error('Error sending text with publishData fallback:', fallbackError);
-                    showFlashMessage('Failed to send message. Please try again.', 'error');
+                    // No UI notification as per requirements
+                    console.log('Failed to send message. Please try again.');
                     
                     // Remove typing indicator if message failed
                     removeTypingIndicator();
@@ -2731,12 +2733,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 interruptButton.classList.add('visible');
             } else {
                 interruptButton.classList.remove('visible');
-                // Don't hide immediately to allow for transition
-                setTimeout(() => {
-                    if (!isAgentSpeaking) {
-                        interruptButton.style.display = 'none';
-                    }
-                }, 300);
+                // Hide immediately when agent stops speaking
+                interruptButton.style.display = 'none';
             }
             
             // Make sure it's visible when typing indicator is present
