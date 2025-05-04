@@ -32,6 +32,12 @@
                         <img src="{{ url_for('static', filename='assets/logo.svg') }}" alt="Carema Logo" class="logo">
                     </div>
                     <div class="header-controls">
+                        <div class="tts-toggle">
+                            <button id="tts-toggle-btn" class="control-toggle" title="Toggle Text-to-Speech">
+                                <i class="fas fa-volume-up" id="tts-icon"></i>
+                                <span class="toggle-label">TTS</span>
+                            </button>
+                        </div>
                         <div class="language-dropdown">
                             <button class="lang-btn" id="lang-btn" title="Change Language">
                                 <i class="fas fa-globe"></i>
@@ -46,6 +52,12 @@
                                 <a href="#" data-lang="en" class="disabled">English</a>
                                 <a href="#" data-lang="es" class="disabled">Spanish</a>
                             </div>
+                        </div>
+                        <div class="download-toggle">
+                            <button id="download-btn" class="control-toggle" title="Download Conversation">
+                                <i class="fas fa-download"></i>
+                                <span class="toggle-label">Save</span>
+                            </button>
                         </div>
                         <a href="/logout" class="logout-btn" title="Logout">
                             <i class="fas fa-sign-out-alt"></i>
@@ -72,10 +84,15 @@
                     
                     <!-- Conversation screen (shown after connection) -->
                     <div class="conversation-screen" id="conversation-screen" style="display: none;">
-                        <!-- AI response in the middle -->
-                        <div class="ai-response-container" id="conversation-container">
-                            <!-- AI responses will be added here dynamically -->
+                        <div class="chat-history" id="chat-history">
+                            <!-- Messages will be rendered here -->
                         </div>
+                        
+                        <!-- Enhanced scroll to bottom button with unread badge -->
+                        <button id="scroll-to-bottom" class="scroll-button">
+                            <i class="fas fa-arrow-down"></i>
+                            <div class="unread-badge">0</div>
+                        </button>
                         
                         <!-- Hidden original chat container kept for compatibility -->
                         <div id="chat-container" class="chat-container" style="display: none;">
@@ -84,25 +101,31 @@
                     </div>
                     
                     <div class="voice-button-container">
-                        <button id="mic-button" class="voice-button">
-                            <!-- Default disconnected state icon -->
-                            <i class="fas fa-arrow-right" id="mic-icon-connect"></i>
-                            <!-- Connected/muted state icon (initially hidden) -->
-                            <i class="fas fa-microphone-slash" id="mic-icon-mute" style="display: none;"></i>
-                            <!-- Active/listening state icon (initially hidden) -->
-                            <i class="fas fa-microphone-alt" id="mic-icon-active" style="display: none;"></i>
-                            <div class="voice-waves">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                            <div class="listening-indicator">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                        </button>
+                        <div class="voice-controls">
+                            <button id="interrupt-button" class="control-button" title="Interrupt Agent" style="display: none;">
+                                <i class="fas fa-hand-paper"></i>
+                                <span class="button-label">Stop</span>
+                            </button>
+                            <button id="mic-button" class="voice-button">
+                                <!-- Default disconnected state icon -->
+                                <i class="fas fa-arrow-right" id="mic-icon-connect"></i>
+                                <!-- Connected/muted state icon (initially hidden) -->
+                                <i class="fas fa-microphone-slash" id="mic-icon-mute" style="display: none;"></i>
+                                <!-- Active/listening state icon (initially hidden) -->
+                                <i class="fas fa-microphone-alt" id="mic-icon-active" style="display: none;"></i>
+                                <div class="voice-waves">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                                <div class="listening-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </button>
+                        </div>
                         <div class="voice-status">
                             <span id="mic-status">Start</span>
                         </div>

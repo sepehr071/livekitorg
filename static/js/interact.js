@@ -1,19 +1,6 @@
 // LiveKit Voice Agent Integration with Session Persistence
 document.addEventListener('DOMContentLoaded', function() {
-    // Add CSS for fade-out animations
-    const style = document.createElement('style');
-    style.textContent = `
-        .fade-out {
-            opacity: 0;
-            transition: opacity 0.3s ease-out;
-            pointer-events: none;
-        }
-    `;
-    document.head.appendChild(style);
-    // Import LiveKit components from the bundled package
-    // These will be available through the bundled import when using webpack
-    
-    // DOM Elements
+    // DOM Elements - moved to the top for proper initialization
     const connectButton = document.getElementById('connect-button');
     // Disconnect button is commented out in HTML, but we'll keep a reference for future use
     // const disconnectButton = document.getElementById('disconnect-button');
@@ -27,6 +14,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const langBtn = document.getElementById('lang-btn');
     const langDropdown = document.getElementById('lang-dropdown');
     const currentLangIndicator = document.querySelector('.current-lang');
+    const interruptButton = document.getElementById('interrupt-button');
+
+    // Add CSS for fade-out animations
+    const style = document.createElement('style');
+    style.textContent = `
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+            pointer-events: none;
+        }
+    `;
+    document.head.appendChild(style);
+    // Import LiveKit components from the bundled package
+    // These will be available through the bundled import when using webpack
+    
+    // DOM Elements section has been moved to the top of the function
 
     // Connection State Management
     const CONNECTION_STATE = {
@@ -45,7 +48,9 @@ document.addEventListener('DOMContentLoaded', function() {
         LIVEKIT_URL: 'livekit_url',
         LANGUAGE: 'livekit_language',
         CONNECTION_STATE: 'livekit_connection_state',
-        LAST_CONNECTED: 'livekit_last_connected'
+        LAST_CONNECTED: 'livekit_last_connected',
+        TTS_MUTED: 'livekit_tts_muted',
+        CONVERSATION_HISTORY: 'livekit_conversation_history'
     };
 
     // Connection info with defaults
@@ -66,6 +71,23 @@ document.addEventListener('DOMContentLoaded', function() {
     let reconnectAttempts = 0;
     let maxReconnectAttempts = 3;
     let isReconnecting = false;
+    let isAgentSpeaking = false; // Track if agent is currently speaking
+    let isTtsMuted = false; // Track TTS mute state
+    // Removed isInterruptActive variable as it's no longer needed
+    // Removed pendingInterruptMessages array as it's no longer needed
+    
+    // Initialize lastSpeakerId and lastClassification with null
+    let lastSpeakerId = null;
+    let lastClassification = null;
+    
+    // Conversation history tracking with enhanced scroll management
+    let conversationHistory = [];
+    let isScrolledToBottom = true;
+    let lastScrollHeight = 0;
+    let unreadMessageCount = 0;
+    let autoScrollEnabled = true; // Enable/disable auto-scrolling
+    let scrollThreshold = 100; // Threshold in pixels to determine if scrolled away from bottom
+    let isProcessingScroll = false; // Prevent scroll event handling during programmatic scrolling
     
     // Add debug flag to easily enable/disable debug messages
     const DEBUG_MODE = true;
@@ -91,9 +113,24 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(prefix, ...args);
         }
         
-        // Also display critical logs in the UI
-        if (level === 'ERROR' || level === 'WARN') {
+        // Only display certain critical logs in the UI
+        if (level === 'ERROR') {
             showFlashMessage(args.join(' '), level.toLowerCase());
+        } else if (level === 'WARN') {
+            // Check if this is a misclassification warning
+            const message = args.join(' ');
+            const isMisclassificationWarning =
+                message.includes('misclassif') ||
+                message.includes('classif') && (message.includes('agent') || message.includes('user')) ||
+                message.includes('likely user') ||
+                message.includes('likely agent') ||
+                message.includes('similarity') ||
+                message.includes('redirect');
+                
+            // Only show warning toast for non-misclassification warnings
+            if (!isMisclassificationWarning) {
+                showFlashMessage(message, level.toLowerCase());
+            }
         }
     }
     
@@ -285,6 +322,14 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Browser is now offline');
         // We don't need to do anything here as LiveKit will handle connection loss
     });
+    
+    // TTS mute toggle button event listener
+    const ttsToggleBtn = document.getElementById('tts-toggle-btn');
+    if (ttsToggleBtn) {
+        ttsToggleBtn.addEventListener('click', () => {
+            toggleTtsMute();
+        });
+    }
 
     // Language dropdown functionality
     document.querySelectorAll('#lang-dropdown a').forEach(link => {
@@ -351,6 +396,57 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+    
+    // Add event listener for download button
+    const downloadBtn = document.getElementById('download-btn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', downloadConversation);
+    }
+    
+    // Function to download conversation
+    function downloadConversation() {
+        // Format conversation history as text
+        const formattedText = formatConversationAsText();
+        
+        // Generate filename with date
+        const date = new Date().toISOString().split('T')[0];
+        const filename = `conversation-${date}.txt`;
+        
+        // Create download link
+        const blob = new Blob([formattedText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        // Set link properties
+        a.href = url;
+        a.download = filename;
+        
+        // Trigger download
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+        
+        // Show confirmation message
+        showFlashMessage('Conversation downloaded successfully', 'success');
+    }
+    
+    // Format conversation history as text
+    function formatConversationAsText() {
+        let text = "Conversation History\n";
+        text += "===================\n\n";
+        
+        conversationHistory.forEach(message => {
+            const prefix = message.isAgent ? "Agent: " : "User: ";
+            text += `${prefix}${message.text}\n\n`;
+        });
+        
+        return text;
+    }
     
     // Helper function to show flash messages - now displays visual messages for better UX
     function showFlashMessage(message, type = 'info') {
@@ -447,22 +543,618 @@ document.addEventListener('DOMContentLoaded', function() {
         saveToStorage(STORAGE_KEYS.LAST_CONNECTED, connectionInfo.lastConnected);
     }
     
-    // Simplified function that loads only language preference
+    // Load user preferences function - now loads both language and TTS mute state
     function loadUserPreferences() {
-        // Only load language preference from session storage
+        // Load language preference from session storage
         try {
             const storedLang = sessionStorage.getItem(STORAGE_KEYS.LANGUAGE);
             if (storedLang) {
                 debugLog('Found stored language preference:', storedLang);
                 currentLanguage = storedLang;
             }
+            
+            // Load TTS mute state preference
+            const storedTtsMuted = loadFromStorage(STORAGE_KEYS.TTS_MUTED);
+            if (storedTtsMuted !== null) {
+                debugLog('Found stored TTS mute preference:', storedTtsMuted);
+                isTtsMuted = storedTtsMuted === 'true' || storedTtsMuted === true;
+            }
         } catch (error) {
             logConnection('ERROR', `Error loading preferences: ${error.message}`);
         }
     }
     
-    // Initialize language preference on load
+    // Initialize TTS state
+    function initializeTtsState() {
+        // Update UI to match state
+        updateTtsToggleDisplay();
+    }
+    
+    // Update TTS toggle button display
+    function updateTtsToggleDisplay() {
+        const ttsToggleBtn = document.getElementById('tts-toggle-btn');
+        const ttsIcon = document.getElementById('tts-icon');
+        
+        if (ttsToggleBtn && ttsIcon) {
+            // Update icon
+            ttsIcon.className = isTtsMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+            
+            // Update button class
+            ttsToggleBtn.classList.toggle('muted', isTtsMuted);
+            
+            // Apply mute state to any existing audio elements
+            applyTtsMuteState();
+        }
+    }
+    
+    // Apply TTS mute state to audio elements
+    function applyTtsMuteState() {
+        // Get all audio elements
+        const audioElements = document.querySelectorAll('audio');
+        audioElements.forEach(audio => {
+            audio.muted = isTtsMuted;
+        });
+    }
+    
+    // Toggle TTS mute state
+    function toggleTtsMute() {
+        isTtsMuted = !isTtsMuted;
+        
+        // Save preference
+        saveToStorage(STORAGE_KEYS.TTS_MUTED, isTtsMuted);
+        
+        // Update UI
+        updateTtsToggleDisplay();
+        
+        // Show feedback
+        showFlashMessage(`Text-to-speech audio ${isTtsMuted ? 'muted' : 'unmuted'}`, 'info');
+    }
+    
+    // Initialize language preference and TTS state on load
     loadUserPreferences();
+    initializeTtsState();
+    
+    // Add interrupt button click handler - moved here after all variable declarations
+    if (interruptButton) {
+        interruptButton.addEventListener('click', interruptAgent);
+    }
+    
+    // Initialize conversation UI - moved here after STORAGE_KEYS is defined
+    initializeConversationUI();
+    
+    // Initialize conversation UI with enhanced scroll functionality and virtualization
+    function initializeConversationUI() {
+        // Set up scroll listener for chat history
+        const chatHistory = document.getElementById('chat-history');
+        if (chatHistory) {
+            // Use passive event listener for better scroll performance
+            chatHistory.addEventListener('scroll', handleScroll, { passive: true });
+            
+            // Add wheel event listener to detect user scroll direction
+            chatHistory.addEventListener('wheel', function(e) {
+                if (!isProcessingScroll) {
+                    // If scrolling down near the bottom, re-enable auto-scroll
+                    const scrollPosition = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight;
+                    if (e.deltaY > 0 && scrollPosition < scrollThreshold * 2) {
+                        autoScrollEnabled = true;
+                    }
+                }
+            }, { passive: true });
+            
+            // Add resize observer to update virtualization when window size changes
+            if ('ResizeObserver' in window) {
+                const resizeObserver = new ResizeObserver((() => {
+                    // Simple debounce implementation
+                    let timeout;
+                    return function(entries) {
+                        clearTimeout(timeout);
+                        timeout = setTimeout(() => {
+                            if (typeof virtualScrollState !== 'undefined' && virtualScrollState.isVirtualized) {
+                                if (typeof handleVirtualScroll === 'function') {
+                                    handleVirtualScroll();
+                                }
+                            }
+                        }, 100);
+                    };
+                })());
+                resizeObserver.observe(chatHistory);
+            }
+        }
+        
+        // Set up scroll to bottom button with unread count badge
+        const scrollButton = document.getElementById('scroll-to-bottom');
+        if (scrollButton) {
+            // Create unread badge if it doesn't exist
+            if (!scrollButton.querySelector('.unread-badge')) {
+                const badge = document.createElement('div');
+                badge.className = 'unread-badge';
+                badge.textContent = '0';
+                scrollButton.appendChild(badge);
+            }
+            
+            scrollButton.addEventListener('click', () => scrollToBottom(true));
+            
+            // Initially hide the button
+            scrollButton.classList.remove('visible');
+        }
+        
+        // Load conversation history if available
+        const storedHistory = loadFromStorage(STORAGE_KEYS.CONVERSATION_HISTORY);
+        if (storedHistory) {
+            try {
+                // Handle different formats of stored history
+                if (typeof storedHistory === 'object' && storedHistory !== null) {
+                    conversationHistory = storedHistory;
+                } else if (typeof storedHistory === 'string') {
+                    conversationHistory = JSON.parse(storedHistory);
+                } else {
+                    throw new Error('Invalid history format');
+                }
+                
+                // Check if we need to limit the stored history size
+                if (conversationHistory.length > 500) {
+                    logConnection('WARN', `Found very large conversation history (${conversationHistory.length} messages), truncating older messages`);
+                    // Keep only the last 500 messages to maintain performance
+                    conversationHistory = conversationHistory.slice(-500);
+                    throttledSaveConversationHistory();
+                }
+                
+                // Render the conversation history
+                renderConversationHistory();
+                
+                // Scroll to bottom after loading history
+                setTimeout(() => {
+                    scrollToBottom(false);
+                }, 100);
+                
+            } catch (e) {
+                logConnection('ERROR', `Failed to parse stored conversation history: ${e.message}`);
+                // Reset to empty array if there was an error
+                conversationHistory = [];
+            }
+        }
+    }
+    
+    // Handle scrolling in chat history with improved scroll detection and indicators
+    function handleScroll() {
+        const chatHistory = document.getElementById('chat-history');
+        const scrollButton = document.getElementById('scroll-to-bottom');
+        const unreadBadge = document.querySelector('.unread-badge');
+        
+        if (!chatHistory || !scrollButton) return;
+        
+        // Skip if this is a programmatic scroll
+        if (isProcessingScroll) return;
+        
+        // Calculate scroll position and percentage
+        const scrollPosition = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight;
+        const scrollPercentage = (chatHistory.scrollTop / (chatHistory.scrollHeight - chatHistory.clientHeight)) * 100;
+        
+        // Update scroll indicator height based on scroll percentage
+        chatHistory.style.setProperty('--scroll-indicator-height', `${scrollPercentage}%`);
+        
+        // Show scroll indicator while actively scrolling
+        chatHistory.classList.add('scrolling');
+        // Clear any existing timeout
+        if (window.scrollIndicatorTimeout) {
+            clearTimeout(window.scrollIndicatorTimeout);
+        }
+        // Hide scroll indicator after a delay
+        window.scrollIndicatorTimeout = setTimeout(() => {
+            chatHistory.classList.remove('scrolling');
+        }, 1000);
+        
+        // Determine if scrolled to bottom (within threshold tolerance)
+        const wasAtBottom = isScrolledToBottom;
+        isScrolledToBottom = scrollPosition < scrollThreshold;
+        
+        // Update scroll button visibility with class for smooth transition
+        if (isScrolledToBottom) {
+            scrollButton.classList.remove('visible');
+            // Reset unread count when scrolled to bottom
+            if (unreadBadge) {
+                unreadBadge.classList.remove('visible');
+                setTimeout(() => { unreadMessageCount = 0; }, 300);
+            }
+        } else {
+            scrollButton.classList.add('visible');
+        }
+        
+        // Track if user has manually scrolled away from bottom
+        if (wasAtBottom && !isScrolledToBottom && !isProcessingScroll) {
+            autoScrollEnabled = false;
+            logConnection('DEBUG', 'Auto-scroll disabled due to manual scroll');
+        }
+        
+        // Re-enable auto-scroll if user manually scrolls to bottom
+        if (!wasAtBottom && isScrolledToBottom && !isProcessingScroll) {
+            autoScrollEnabled = true;
+            logConnection('DEBUG', 'Auto-scroll re-enabled by manual scroll to bottom');
+        }
+    }
+    
+    // Scroll to bottom of chat with enhanced performance for long conversations
+    function scrollToBottom(smooth = true) {
+        const chatHistory = document.getElementById('chat-history');
+        if (!chatHistory) return;
+        
+        logConnection('DEBUG', 'Scrolling to bottom');
+        isProcessingScroll = true;
+        
+        // Update scroll button visibility immediately to avoid flicker
+        const scrollButton = document.getElementById('scroll-to-bottom');
+        const unreadBadge = document.querySelector('.unread-badge');
+        
+        if (scrollButton) {
+            scrollButton.classList.remove('visible');
+        }
+        
+        if (unreadBadge) {
+            unreadBadge.classList.remove('visible');
+            unreadBadge.textContent = '0';
+            unreadMessageCount = 0;
+        }
+        
+        // Disable smooth scrolling for very large conversations for performance
+        const shouldUseSmooth = smooth && conversationHistory.length < 200;
+        
+        // Apply scrolling behavior based on conversation size
+        if (shouldUseSmooth) {
+            chatHistory.style.scrollBehavior = 'smooth';
+        } else {
+            chatHistory.style.scrollBehavior = 'auto';
+        }
+        
+        // Use requestAnimationFrame to ensure DOM updates before scrolling
+        requestAnimationFrame(() => {
+            // Perform the scroll
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            
+            // Add visual feedback for large scrolls
+            if (conversationHistory.length > 50) {
+                chatHistory.classList.add('scrolling');
+                setTimeout(() => {
+                    chatHistory.classList.remove('scrolling');
+                }, 1000);
+            }
+            
+            // Update state
+            isScrolledToBottom = true;
+            autoScrollEnabled = true;
+            
+            // Reset scroll behavior and processing flag after appropriate delay
+            setTimeout(() => {
+                if (chatHistory) {
+                    chatHistory.style.scrollBehavior = 'smooth';
+                }
+                isProcessingScroll = false;
+            }, shouldUseSmooth ? 300 : 50);
+        });
+    }
+    
+    // Maintain scroll position with enhanced performance for long conversations
+    function maintainScrollPosition() {
+        const chatHistory = document.getElementById('chat-history');
+        const scrollButton = document.getElementById('scroll-to-bottom');
+        const unreadBadge = document.querySelector('.unread-badge');
+        
+        if (!chatHistory) return;
+        
+        // Skip if processing another scroll operation
+        if (isProcessingScroll) return;
+        
+        // If auto-scroll is enabled or we were at the bottom, scroll to bottom
+        if (autoScrollEnabled || isScrolledToBottom) {
+            // Save current scroll height before changes
+            const prevScrollHeight = chatHistory.scrollHeight;
+            
+            // Schedule the scroll after DOM has updated
+            requestAnimationFrame(() => {
+                // For large changes, use smooth scrolling for better UX
+                const heightDifference = chatHistory.scrollHeight - prevScrollHeight;
+                const useSmoothScroll = heightDifference > 200;
+                
+                // Use appropriate scrolling method based on change size
+                if (heightDifference > 10) {
+                    scrollToBottom(useSmoothScroll);
+                } else {
+                    // For minor changes, just maintain position
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                    isScrolledToBottom = true;
+                }
+            });
+        } else {
+            // We're not at the bottom and auto-scroll is disabled, so increment unread count
+            unreadMessageCount++;
+            
+            // Update unread badge with better visibility for larger counts
+            if (scrollButton && unreadBadge) {
+                // Use different formatting for larger numbers
+                if (unreadMessageCount > 99) {
+                    unreadBadge.textContent = '99+';
+                } else if (unreadMessageCount > 9) {
+                    unreadBadge.textContent = unreadMessageCount;
+                } else {
+                    unreadBadge.textContent = unreadMessageCount;
+                }
+                
+                unreadBadge.classList.add('visible');
+            }
+            
+            // Make sure scroll button is visible and animated for attention
+            if (scrollButton) {
+                scrollButton.classList.add('visible');
+                
+                // Add attention-grabbing animation for higher unread counts
+                if (unreadMessageCount > 5 && !scrollButton.classList.contains('attention')) {
+                    scrollButton.classList.add('attention');
+                    setTimeout(() => scrollButton.classList.remove('attention'), 1000);
+                }
+            }
+            
+            logConnection('DEBUG', `Not scrolling to bottom, unread messages: ${unreadMessageCount}`);
+        }
+    }
+    
+    // Add a message to the conversation history with optimized rendering
+    function addToConversationHistory(text, isAgent, metadata = {}) {
+        // Create message object
+        const message = {
+            text: text,
+            isAgent: isAgent,
+            timestamp: new Date().toISOString(),
+            ...metadata
+        };
+        
+        // Add to history array
+        conversationHistory.push(message);
+        
+        // Save to storage - throttle for performance with large conversations
+        throttledSaveConversationHistory();
+        
+        // Render just the new message instead of the entire history
+        // for better performance with long conversations
+        appendSingleMessage(message);
+    }
+    
+    // Throttle function to prevent excessive storage operations
+    let saveHistoryTimeout = null;
+    function throttledSaveConversationHistory() {
+        if (saveHistoryTimeout) {
+            clearTimeout(saveHistoryTimeout);
+        }
+        
+        saveHistoryTimeout = setTimeout(() => {
+            saveToStorage(STORAGE_KEYS.CONVERSATION_HISTORY, JSON.stringify(conversationHistory));
+            logConnection('DEBUG', 'Conversation history saved to storage');
+        }, 1000); // Save after 1 second of inactivity
+    }
+    
+    // Append a single message to the chat history with enhanced scroll position preservation
+    function appendSingleMessage(message) {
+        const chatHistory = document.getElementById('chat-history');
+        if (!chatHistory) return;
+        
+        // Save scroll position information before adding content
+        const wasAtBottom = isScrolledToBottom;
+        const prevScrollTop = chatHistory.scrollTop;
+        const prevScrollHeight = chatHistory.scrollHeight;
+        
+        // Create the new message element
+        const messageEl = createMessageElement(message, conversationHistory.length - 1);
+        
+        // Use requestAnimationFrame for better performance
+        requestAnimationFrame(() => {
+            // Add the new message
+            chatHistory.appendChild(messageEl);
+            
+            // If user was not at the bottom (reading older messages)
+            if (!wasAtBottom) {
+                // Calculate and restore scroll position to maintain the same view
+                const newScrollTop = prevScrollTop + (chatHistory.scrollHeight - prevScrollHeight);
+                
+                // Temporarily disable scroll event handling
+                isProcessingScroll = true;
+                
+                // Immediately apply the scroll position to avoid flicker
+                chatHistory.scrollTop = newScrollTop;
+                
+                // Re-enable scroll handling after a short delay
+                setTimeout(() => {
+                    isProcessingScroll = false;
+                }, 100);
+            } else {
+                // If at bottom, just maintain scroll position normally
+                maintainScrollPosition();
+            }
+            
+            // Add highlight animation for new messages with improved visual feedback
+            messageEl.classList.add('new-message');
+            
+            // Use a more pronounced animation duration for better visibility
+            setTimeout(() => {
+                messageEl.classList.remove('new-message');
+            }, 1500);
+            
+            // Add a subtle scroll animation to draw attention
+            if (isScrolledToBottom) {
+                messageEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }
+        });
+    }
+    
+    // Render the conversation history with optimizations for long conversations
+    function renderConversationHistory() {
+        const chatHistory = document.getElementById('chat-history');
+        if (!chatHistory) return;
+        
+        // Save scroll height before rendering
+        lastScrollHeight = chatHistory.scrollHeight;
+        
+        // Set a flag to prevent scroll handling during bulk rendering
+        isProcessingScroll = true;
+        
+        // Clear current content
+        chatHistory.innerHTML = '';
+        
+        // For very long conversations, consider implementing virtualization
+        // For now, we'll use a simple optimization to limit rendering when needed
+        let messagesToRender = conversationHistory;
+        const MAX_MESSAGES = 100; // Maximum number of messages to render at once
+        
+        if (conversationHistory.length > MAX_MESSAGES) {
+            logConnection('INFO', `Optimizing rendering for large conversation (${conversationHistory.length} messages)`);
+            messagesToRender = conversationHistory.slice(-MAX_MESSAGES);
+            
+            // Add a notice that some messages are not shown
+            const noticeEl = document.createElement('div');
+            noticeEl.className = 'message system-message';
+            noticeEl.innerHTML = `<div class="message-bubble">
+                <div class="message-text">
+                    ${conversationHistory.length - MAX_MESSAGES} earlier messages are not displayed.
+                    <button class="view-all-btn">View All</button>
+                </div>
+            </div>`;
+            
+            // Add button handler to view all messages
+            const viewAllBtn = noticeEl.querySelector('.view-all-btn');
+            if (viewAllBtn) {
+                viewAllBtn.addEventListener('click', function() {
+                    renderAllMessages();
+                });
+            }
+            
+            chatHistory.appendChild(noticeEl);
+        }
+        
+        // Create a document fragment for better performance
+        const fragment = document.createDocumentFragment();
+        
+        // Render each message
+        messagesToRender.forEach((message, index) => {
+            const messageEl = createMessageElement(message, index);
+            fragment.appendChild(messageEl);
+        });
+        
+        // Append all messages at once for better performance
+        chatHistory.appendChild(fragment);
+        
+        // Reset processing flag
+        setTimeout(() => {
+            isProcessingScroll = false;
+            // Maintain scroll position
+            maintainScrollPosition();
+        }, 50);
+    }
+    
+    // Function to render all messages when requested
+    function renderAllMessages() {
+        const chatHistory = document.getElementById('chat-history');
+        if (!chatHistory) return;
+        
+        logConnection('INFO', `Rendering all ${conversationHistory.length} messages`);
+        
+        // Show loading indicator
+        showFlashMessage('Loading all messages...', 'info');
+        
+        // Use setTimeout to allow UI to update before heavy operation
+        setTimeout(() => {
+            isProcessingScroll = true;
+            
+            // Clear current content
+            chatHistory.innerHTML = '';
+            
+            // Create a document fragment for better performance
+            const fragment = document.createDocumentFragment();
+            
+            // Render each message
+            conversationHistory.forEach((message, index) => {
+                const messageEl = createMessageElement(message, index);
+                fragment.appendChild(messageEl);
+            });
+            
+            // Append all messages at once
+            chatHistory.appendChild(fragment);
+            
+            // Reset processing flag and maintain scroll
+            setTimeout(() => {
+                isProcessingScroll = false;
+                maintainScrollPosition();
+                showFlashMessage('All messages loaded', 'success');
+            }, 50);
+        }, 100);
+    }
+    
+    // Create a message element
+    function createMessageElement(message, index) {
+        const messageContainer = document.createElement('div');
+        messageContainer.className = `message ${message.isAgent ? 'agent-message' : 'user-message'}`;
+        messageContainer.dataset.index = index;
+        
+        // Create avatar
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = message.isAgent ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
+        
+        // Create message bubble
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        
+        // Message text
+        const textEl = document.createElement('div');
+        textEl.className = 'message-text';
+        textEl.textContent = message.text;
+        
+        // Message timestamp - formatted more nicely
+        const timeEl = document.createElement('div');
+        timeEl.className = 'message-time';
+        const date = new Date(message.timestamp);
+        timeEl.textContent = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Assemble message
+        bubble.appendChild(textEl);
+        bubble.appendChild(timeEl);
+        messageContainer.appendChild(avatar);
+        messageContainer.appendChild(bubble);
+        
+        return messageContainer;
+    }
+    
+    // Show typing indicator
+    function showTypingIndicator() {
+        const chatHistory = document.getElementById('chat-history');
+        if (!chatHistory) return;
+        
+        // Remove any existing indicator
+        removeTypingIndicator();
+        
+        // Create typing indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'message agent-message typing-indicator-container';
+        indicator.id = 'typing-indicator';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = '<i class="fas fa-robot"></i>';
+        
+        const typing = document.createElement('div');
+        typing.className = 'typing-indicator';
+        typing.innerHTML = '<span></span><span></span><span></span>';
+        
+        indicator.appendChild(avatar);
+        indicator.appendChild(typing);
+        
+        chatHistory.appendChild(indicator);
+        scrollToBottom();
+    }
+    
+    // Remove typing indicator
+    function removeTypingIndicator() {
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
     
     // Function to clear connection info
     function clearConnectionInfo() {
@@ -783,6 +1475,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     if (isTranscribedSpeech) {
                         if (isAgentIdentity) {
+                            // We don't need to block transcriptions anymore since we're just sending the interrupt message
+                            // The agent will handle stopping on its own
+                            
                             // Agent speaking - use displayAgentMessage
                             // Extract final status for agent too
                             const isFinal = reader.info.attributes &&
@@ -800,14 +1495,18 @@ document.addEventListener('DOMContentLoaded', function() {
                                 reader.info.attributes['lk.transcription_final'] === 'true';
                             
                             logConnection('DEBUG', `User transcription: "${message.substring(0, 30)}..." (final=${isFinal})`);
-                            displayUserTranscription(message, null, isFinal);
+                            
+                            // Only add final user transcriptions to the chat history
+                            if (isFinal) {
+                                displayUserMessage(message);
+                            }
                         }
                     } else {
                         // DIRECT MESSAGE: Non-transcription message (rare, but handle it)
                         if (isAgentIdentity) {
                             // If from agent, put in agent area
                             logConnection('INFO', "Processing DIRECT AGENT MESSAGE (non-transcription)");
-                            displayAgentMessage(message, false, true);
+                            displayAgentMessage(message, false, false);
                         } else {
                             // If from user or system, handle as system message
                             logConnection('INFO', "Processing OTHER MESSAGE");
@@ -834,9 +1533,27 @@ document.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
                     
+                    // Check for interrupt commands from client
+                    if (message === "!interrupt" || message === "/interrupt") {
+                        logConnection('INFO', "Received interrupt command via chat");
+                        return; // Don't display these
+                    }
+                    
                     // Skip language instruction messages (they start with "From now on only respond in")
                     if (message.startsWith("From now on only respond in")) {
                         logConnection('DEBUG', "Skipping language instruction message in display");
+                        return;
+                    }
+                    
+                    // We don't need to block chat messages anymore since we're just sending the interrupt message
+                    // The agent will handle stopping on its own
+                    
+                    // Skip processing interrupt messages
+                    // Check both the text content and the x-interrupt-command attribute
+                    if (message === "stop talking for now" ||
+                        (reader.info && reader.info.attributes &&
+                         reader.info.attributes['x-interrupt-command'] === 'true')) {
+                        logConnection('DEBUG', 'Skipping interrupt command message in UI display');
                         return;
                     }
                     
@@ -844,20 +1561,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     logConnection('INFO', "Showing agent response in UI from CHAT");
                     
                     // Show notification that we received a message
-                    showFlashMessage('Received response from Caila', 'info');
+                    showFlashMessage('Received response from agent', 'info');
                     
-                    // Use displayAgentMessage to ensure correct placement in agent area
-                    displayAgentMessage(message, false, true);
+                    // Remove typing indicator first
+                    removeTypingIndicator();
                     
-                    // Also add to chat log for completeness (invisible but functional)
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = 'message agent-message';
-                    messageDiv.innerHTML = `
-                        <strong>Caila:</strong>
-                        <p>${message}</p>
-                        <small>${new Date().toLocaleTimeString()}</small>
-                    `;
-                    chatContainer.appendChild(messageDiv);
+                    // Add message to conversation history (not partial since it's a complete message)
+                    displayAgentMessage(message, false, false);
                 } catch (error) {
                     logConnection('ERROR', `Error reading chat stream: ${error.message}`, error);
                 }
@@ -881,6 +1591,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const decodedData = new TextDecoder().decode(payload);
                 const data = JSON.parse(decodedData);
                 
+                // Check for interrupt response acknowledgment
+                if (data.type === 'control' && data.action === 'interrupt_ack') {
+                    logConnection('INFO', 'Received interrupt acknowledgment from agent');
+                    return;
+                }
+                
                 if (data.type === 'message') {
                     // Skip language instruction messages
                     if (data.text && data.text.startsWith("From now on only respond in")) {
@@ -888,19 +1604,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
                     
-                    console.log("Showing agent response from data:", data.text);
-                    // Display directly in agent area
-                    displayAgentMessage(data.text, false, true);
+                    // We don't need to block data messages anymore since we're just sending the interrupt message
+                    // The agent will handle stopping on its own
                     
-                    // Also add to chat log for history (invisible but functional)
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = 'message agent-message';
-                    messageDiv.innerHTML = `
-                        <strong>Caila:</strong>
-                        <p>${data.text}</p>
-                        <small>${new Date().toLocaleTimeString()}</small>
-                    `;
-                    chatContainer.appendChild(messageDiv);
+                    // Skip processing interrupt messages
+                    // Check both the text content and the interrupt type
+                    if (data.text === "stop talking for now" || data.type === 'interrupt') {
+                        logConnection('DEBUG', 'Skipping interrupt command message in UI display');
+                        return;
+                    }
+                    
+                    console.log("Showing agent response from data:", data.text);
+                    
+                    // Remove typing indicator first
+                    removeTypingIndicator();
+                    
+                    // Add to conversation history as a complete message (not partial)
+                    displayAgentMessage(data.text, false, false);
                 }
             } catch (error) {
                 console.error('Error processing received data:', error);
@@ -915,9 +1635,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const agentMessagesByContent = new Map(); // Maps normalized content -> DOM element
     
     // Store partial fragments to track conversation context
-    let lastSpeakerId = null;
     let partialMessageFragments = [];
-    let lastClassification = null; // 'agent' or 'user'
+    // Using the lastSpeakerId and lastClassification from the top state variables
     
     // Function to clean up misclassified messages
     function cleanupMisclassifiedMessages(agentText, removeOnly = false) {
@@ -994,12 +1713,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Remove duplicate function (already defined above)
     
-    // IMPROVED: Display user transcriptions in the user text display
+    // Add utility function for string similarity comparison
+    function calculateStringSimilarity(str1, str2) {
+        // Simple similarity measure - can be enhanced if needed
+        if (str1 === str2) return 1.0;
+        if (str1.length === 0 || str2.length === 0) return 0.0;
+        
+        // Check for substring relationship
+        if (str1.includes(str2)) return str2.length / str1.length;
+        if (str2.includes(str1)) return str1.length / str2.length;
+        
+        // Count matching words
+        const words1 = str1.split(/\s+/);
+        const words2 = str2.split(/\s+/);
+        let matches = 0;
+        
+        for (const word of words1) {
+            if (word.length > 3 && words2.includes(word)) {
+                matches++;
+            }
+        }
+        
+        return (2 * matches) / (words1.length + words2.length);
+    }
+    
+    // IMPROVED: Display user transcriptions in the user text display with enhanced safety checks
     function displayUserTranscription(text, segmentId = null, isFinal = false) {
         // Safety check
         if (!text || text.trim() === '') return;
         
-        // More comprehensive check for agent messages
+        // More comprehensive check for agent messages with stricter criteria
         const lowerText = text.toLowerCase();
         const agentPhrases = [
             "i'm ana", "sales professional", "assist you", "help you",
@@ -1007,9 +1750,12 @@ document.addEventListener('DOMContentLoaded', function() {
             "is there anything", "would you like", "can i assist"
         ];
         
-        // Check if this contains any agent phrases and is longer than a typical user message
-        if (agentPhrases.some(phrase => lowerText.includes(phrase)) && lowerText.length > 25) {
-            console.log(`Skipping likely agent message incorrectly classified as user: "${text}"`);
+        // Count agent phrases
+        const matchCount = agentPhrases.filter(phrase => lowerText.includes(phrase)).length;
+        
+        // Much stricter criteria to reject - must have multiple agent phrases to be rejected
+        if (matchCount >= 2 && lowerText.length > 25) {
+            console.log(`Skipping likely agent message incorrectly classified as user: "${text}" (matched ${matchCount} phrases)`);
             return;
         }
         
@@ -1131,11 +1877,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.body.appendChild(audioElement);
                 audioElement.style.display = 'none'; // Hide but keep audio playing
                 
+                // Apply current TTS mute state to this audio element
+                audioElement.muted = isTtsMuted;
+                
                 // Special logging for agent audio
                 if (participant.identity && participant.identity.startsWith('agent')) {
                     logConnection('INFO', "✓ Agent audio connected");
                     // This is the ONLY place where we show the success message - after audio is ready
                     showFlashMessage('Connected successfully! You can now interact with the Caila.', 'success');
+                    
+                    // Track agent speaking state
+                    isAgentSpeaking = true;
+                    updateInterruptButtonVisibility();
+                    
+                    // Set up ended event to know when agent stops speaking
+                    audioElement.onended = () => {
+                        isAgentSpeaking = false;
+                        updateInterruptButtonVisibility();
+                    };
+                    
+                    // Also monitor playing state to detect when agent stops speaking
+                    audioElement.addEventListener('pause', () => {
+                        isAgentSpeaking = false;
+                        updateInterruptButtonVisibility();
+                    });
+                    
+                    // Monitor playing state to detect when agent starts speaking
+                    audioElement.addEventListener('play', () => {
+                        isAgentSpeaking = true;
+                        updateInterruptButtonVisibility();
+                    });
                 }
             }
         });
@@ -1166,16 +1937,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     rawSegment: segment
                 });
                 
-                // IMPROVED CLASSIFICATION: Prioritize identity-based classification
-                // This is the most reliable method
-                const isIdentityAgent = segment.senderIdentity &&
-                                       segment.senderIdentity.startsWith('agent');
+                // FIXED CLASSIFICATION: More robust handling of identity and fallbacks
+                // Start with definite null value to avoid undefined issues
+                let isIdentityAgent = null;
                 
-                // Only use content-based classification as a fallback
-                let isAgent = isIdentityAgent;
+                // Explicit check for sender identity, treating undefined properly
+                if (segment.senderIdentity) {
+                    isIdentityAgent = segment.senderIdentity.startsWith('agent');
+                    logConnection('DEBUG', `Identity-based classification: ${isIdentityAgent} from identity "${segment.senderIdentity}"`);
+                } else {
+                    logConnection('DEBUG', `No sender identity available for classification`);
+                }
                 
-                // If we couldn't determine from identity, use content analysis
-                if (!isIdentityAgent && segment.text.length > 10) {
+                // Default to not agent when identity is missing (safer assumption)
+                // This explicitly handles the undefined identity case
+                let isAgent = isIdentityAgent === true;
+                
+                // Safety check against recent user input to prevent misclassification
+                if (lastUserInput && lastUserInput.trim().length > 0) {
+                    const segmentLower = segment.text.toLowerCase().trim();
+                    const userInputLower = lastUserInput.toLowerCase().trim();
+                    
+                    // If this segment closely matches recent user input, it's definitely from user
+                    // regardless of other classification signals
+                    if (segmentLower === userInputLower ||
+                        (segmentLower.length > 5 && userInputLower.includes(segmentLower)) ||
+                        (userInputLower.length > 5 && segmentLower.includes(userInputLower))) {
+                        logConnection('DEBUG', `Force classifying as USER message - matches recent user input`);
+                        isAgent = false;
+                    }
+                }
+                
+                // Only attempt content-based classification if still uncertain and text is substantial
+                if (isIdentityAgent !== true && segment.text.length > 10) {
                     // Track current speaker ID for conversation context
                     const currentSpeakerId = segment.participantId || segment.senderIdentity || 'unknown';
                     
@@ -1203,21 +1997,44 @@ document.addEventListener('DOMContentLoaded', function() {
                         "would you like", "can i assist"
                     ];
                     
-                    // Check if this contains multiple agent phrases or is a longer message
+                    // Count agent phrases
                     const matchCount = agentPhrases.filter(phrase => textContent.includes(phrase)).length;
-                    const isContentFromAgent = (matchCount >= 1 && textContent.length > 30) ||
-                                              (matchCount >= 2);
                     
-                    // Look at active speakers to help with classification
-                    const isActiveSpeakerAgent = room.activeSpeakers.some(
-                        speaker => speaker.identity && speaker.identity.startsWith('agent')
-                    );
+                    // User-specific phrases that would indicate this is definitely a user message
+                    const userPhrases = ["i need", "i want", "can you", "what is", "do you", "how do i"];
+                    const userPhraseMatches = userPhrases.filter(phrase => textContent.includes(phrase)).length;
                     
-                    // Combined check - use any method that works
-                    isAgent = isContentFromAgent || (isActiveSpeakerAgent && segment.text.length > 20);
+                    // If we detect user phrases, keep this as a user message
+                    if (userPhraseMatches > 0) {
+                        isAgent = false;
+                        logConnection('DEBUG', `Detected ${userPhraseMatches} user phrases, classifying as USER`);
+                    }
+                    // Otherwise use agent phrase detection with higher threshold for safety
+                    else {
+                        // Require stronger evidence to classify as agent when identity is missing:
+                        // More matches and longer text
+                        const isContentFromAgent = (matchCount >= 2 && textContent.length > 30) ||
+                                                   (matchCount >= 3);
+                        
+                        // Look at active speakers to help with classification
+                        let isActiveSpeakerAgent = false;
+                        if (room.activeSpeakers) {
+                            isActiveSpeakerAgent = room.activeSpeakers.some(
+                                speaker => speaker.identity && speaker.identity.startsWith('agent')
+                            );
+                        }
+                        
+                        // Combined check - more conservative when identity is missing
+                        if (isContentFromAgent || (isActiveSpeakerAgent && matchCount >= 1 && segment.text.length > 30)) {
+                            isAgent = true;
+                        }
+                    }
                 }
                 
-                logConnection('DEBUG', `Message classification: isIdentityAgent=${isIdentityAgent}, final decision: isAgent=${isAgent}`);
+                // Ensure final result is always a definite boolean (not undefined or null)
+                isAgent = isAgent === true;
+                
+                logConnection('DEBUG', `Final message classification: isIdentityAgent=${isIdentityAgent}, isAgent=${isAgent}`);
                 
                 // Store classification for this conversation turn
                 if (lastClassification !== (isAgent ? 'agent' : 'user')) {
@@ -1225,7 +2042,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     logConnection('INFO', `Classification changed to: ${lastClassification}`);
                 }
                 
-                // IMPROVED HANDLING: Clear separation between agent and user messages
+                // IMPROVED HANDLING: Additional safety check before display
                 if (isAgent) {
                     // For agent messages - display all transcriptions, both final and non-final
                     logConnection('INFO', `Displaying AGENT message from transcription (final=${segment.final})`);
@@ -1233,6 +2050,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // For user messages - display all transcriptions
                     logConnection('INFO', `Displaying USER message from transcription (final=${segment.final})`);
+                    
+                    // Final safety check - don't let user transcriptions go to agent bubble
+                    if (lastUserInput && segment.text.trim().length > 0) {
+                        const similarity = calculateStringSimilarity(
+                            segment.text.toLowerCase().trim(),
+                            lastUserInput.toLowerCase().trim()
+                        );
+                        // If very similar to last user input, force as user message
+                        if (similarity > 0.7) {
+                            logConnection('DEBUG', `Similarity check confirms USER classification (${similarity.toFixed(2)})`);
+                        }
+                    }
+                    
                     displayUserTranscription(segment.text, null, segment.final === true);
                 }
             }
@@ -1381,8 +2211,17 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Add the message to the chat
-        addMessage('You', text, 'user');
+        // Make sure text input container remains visible
+        const textInputContainer = document.querySelector('.text-input-container');
+        if (textInputContainer) {
+            textInputContainer.classList.add('visible');
+        }
+        
+        // Add the message to the conversation history
+        displayUserMessage(text);
+        
+        // Show typing indicator for agent response
+        showTypingIndicator();
         
         // Send the message to the room using the text stream API
         if (room && room.localParticipant) {
@@ -1411,12 +2250,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 } catch (fallbackError) {
                     console.error('Error sending text with publishData fallback:', fallbackError);
                     showFlashMessage('Failed to send message. Please try again.', 'error');
+                    
+                    // Remove typing indicator if message failed
+                    removeTypingIndicator();
                 }
             }
         }
         
         // Clear the input
         textInput.value = '';
+        
+        // Ensure textInput is visible and focused after sending
+        setTimeout(() => {
+            if (textInput) {
+                textInput.focus();
+                
+                // Make sure container stays visible
+                const textInputContainer = document.querySelector('.text-input-container');
+                if (textInputContainer) {
+                    textInputContainer.classList.add('visible');
+                }
+            }
+        }, 0);
     }
 
     // Add a message to the chat container
@@ -1493,7 +2348,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Display user message in the user text display
+    // Display user message in the conversation history
     function displayUserMessage(text) {
         if (!text || text.trim() === '') return;
         console.log('Displaying user message:', text);
@@ -1504,153 +2359,191 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add to user message tracking map
         userMessagesByContent.set(normalizedContent, null);
         
-        // Update the user text display
-        const userTextDisplay = document.getElementById('user-text-display');
-        if (userTextDisplay) {
-            userTextDisplay.textContent = text;
-            
-            // Store reference to this element
-            userMessagesByContent.set(normalizedContent, userTextDisplay);
-            
-            // Save this as the last user input
-            lastUserInput = text;
-            console.log(`Saved last user input: "${lastUserInput}"`);
-        }
+        // Add to conversation history
+        addToConversationHistory(text, false);
         
-        // Also add to conversation for compatibility
-        addMessageToConversation(text, false);
+        // Show typing indicator for agent response
+        showTypingIndicator();
+        
+        // Save this as the last user input
+        lastUserInput = text;
+        console.log(`Saved last user input: "${lastUserInput}"`);
     }
     
     // Variables to track streaming state
     let currentStreamingMessage = null;
     
-    // Display agent message with streaming effect
-    function displayAgentMessage(text, isTranscription, isStreaming = true) {
-        // Add source tracking for debugging - with browser compatibility
-        let source = "unknown";
-        try {
-            const callStack = new Error().stack;
-            if (callStack) {
-                // Stack trace is available (Chrome, Firefox, etc.)
-                source = callStack.split('\n')[2]?.trim() || "unknown";
-            } else {
-                // Stack trace unavailable (Safari)
-                source = "browser-without-stack-support";
-            }
-        } catch (e) {
-            // If any error occurs during stack handling, use a fallback
-            source = "stack-error";
-        }
-        
+    // Display agent message with streaming/typing effect and enhanced safety checks
+    function displayAgentMessage(text, isTranscription, isPartial = false) {
         // Safety check
         if (!text || text.trim() === '') return;
         
-        console.log(`AGENT MESSAGE [${source}]: "${text}" (isTranscription=${isTranscription}, isStreaming=${isStreaming})`);
+        // SAFETY CHECK: Verify this doesn't look like a user message before displaying as agent
+        let shouldDisplay = true;
+        const normalizedText = text.trim().toLowerCase();
         
-        try {
-            // Create a new agent message in the conversation container
-            console.log("Creating new agent message");
+        // If we have recent user input, compare with this message
+        if (lastUserInput && lastUserInput.trim().length > 0) {
+            const userInputLower = lastUserInput.toLowerCase().trim();
             
-            // Get the conversation container
-            const conversationContainer = document.getElementById('conversation-container');
-            if (!conversationContainer) {
-                console.error("Conversation container not found");
-                return;
+            // Calculate similarity between this message and the last user input
+            const similarity = calculateStringSimilarity(normalizedText, userInputLower);
+            
+            // If very similar to user input, this might be a misclassified user message
+            if (similarity > 0.7) {
+                logConnection('WARN', `Potential misclassification detected - agent message too similar to user input (similarity: ${similarity.toFixed(2)})`);
+                logConnection('DEBUG', `User input: "${userInputLower}"`);
+                logConnection('DEBUG', `Agent text: "${normalizedText}"`);
+                
+                // Don't suppress messages that are very long compared to user input
+                // This handles cases where user input is echoed as part of a longer response
+                if (normalizedText.length < userInputLower.length * 2) {
+                    // Log the warning but continue showing as agent message
+                    logConnection('DEBUG', `Potential similarity with user input detected (${similarity.toFixed(2)}) but continuing with agent display`);
+                    // Don't set shouldDisplay = false anymore
+                } else {
+                    logConnection('DEBUG', `Displaying anyway due to length difference (agent: ${normalizedText.length}, user: ${userInputLower.length})`);
+                }
+            }
+        }
+        
+        // Additional check for user question patterns that wouldn't make sense from an agent
+        const userQuestionPatterns = [
+            /^(can|could) you/i,
+            /^(what|how|why|when|where) (is|are|can|do|does|did)/i,
+            /^i need/i,
+            /^i want/i,
+            /^tell me/i
+        ];
+        
+        // Only apply this check to shorter messages to avoid filtering agent responses
+        // that might repeat the user's question
+        if (shouldDisplay && text.length < 60) {
+            for (const pattern of userQuestionPatterns) {
+                if (pattern.test(text.trim())) {
+                    logConnection('WARN', `Likely user question detected in agent message: "${text}"`);
+                    logConnection('DEBUG', `Matched pattern: ${pattern}`);
+                    shouldDisplay = false;
+                    break;
+                }
+            }
+        }
+        
+        // Only proceed if the safety checks pass
+        if (shouldDisplay) {
+            console.log(`AGENT MESSAGE: "${text}" (isTranscription=${isTranscription}, isPartial=${isPartial})`);
+            
+            // Add deduplication logic to prevent duplicate messages
+            // Check if we already have this exact message in recent history
+            const chatHistory = document.getElementById('chat-history');
+            if (chatHistory) {
+                const recentAgentMessages = chatHistory.querySelectorAll('.agent-message');
+                let isDuplicate = false;
+                
+                // Check last 3 messages to see if this is a duplicate
+                recentAgentMessages.forEach(msg => {
+                    const msgText = msg.querySelector('.message-text')?.textContent;
+                    if (msgText === text) {
+                        isDuplicate = true;
+                        logConnection('DEBUG', `Skipping duplicate agent message: "${text.substring(0, 30)}..."`);
+                    }
+                });
+                
+                // If it's a duplicate, don't add it again
+                if (isDuplicate && !isPartial) {
+                    return;
+                }
             }
             
-            // Check if we already have an AI message element
-            let aiMessage = conversationContainer.querySelector('.ai-message');
-            
-            // If no existing message or not streaming, create a new one
-            if (!aiMessage || !isStreaming) {
-                // Clear previous messages - we only show the latest AI response
-                conversationContainer.innerHTML = '';
-                
-                // Create a new AI message
-                aiMessage = document.createElement('div');
-                aiMessage.className = 'ai-message';
-                
-                // Add the message content element
-                const contentElement = document.createElement('div');
-                contentElement.className = 'ai-message-content';
-                aiMessage.appendChild(contentElement);
-                
-                // Add to the container
-                conversationContainer.appendChild(aiMessage);
+            // Remove typing indicator if this is a final message
+            if (!isPartial) {
+                removeTypingIndicator();
             }
             
-            // Get the content element
-            const contentElement = aiMessage.querySelector('.ai-message-content');
-            if (!contentElement) {
-                console.error("Content element not found in AI message");
-                return;
+            try {
+                // If this is a partial message (streaming), update the last message if it exists
+                if (isPartial) {
+                    // Find the last agent message in the history
+                    const chatHistory = document.getElementById('chat-history');
+                    const lastAgentMessage = chatHistory?.querySelector('.agent-message:last-of-type');
+                    
+                    if (lastAgentMessage) {
+                        // Update the existing message content
+                        const textEl = lastAgentMessage.querySelector('.message-text');
+                        if (textEl) {
+                            textEl.textContent = text;
+                            maintainScrollPosition();
+                            return;
+                        }
+                    }
+                    
+                    // If we couldn't find a message to update, create a new one
+                    addToConversationHistory(text, true, { isPartial: true });
+                } else {
+                    // For final messages, add as a new message
+                    addToConversationHistory(text, true);
+                }
+            } catch (error) {
+                console.error("Error displaying agent message:", error);
             }
-            
-            // Store for reference
-            currentStreamingMessage = aiMessage;
-            
-            // If streaming, update the text with animation
-            if (isStreaming) {
-                // Add streaming class
-                aiMessage.classList.add('streaming');
-                
-                // Update the text immediately - this is what the user wants
-                contentElement.textContent = text;
-            } else {
-                // Just display the full text immediately
-                contentElement.textContent = text;
-                aiMessage.classList.remove('streaming');
-            }
-            
-            // Force scroll to bottom with multiple attempts at different times
-            // This ensures we catch the scroll after content is fully rendered
-            forceScrollToBottom(conversationContainer);
-            
-            // Also add to chat log for completeness (invisible but functional)
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message agent-message';
-            messageDiv.innerHTML = `
-                <strong>Caila:</strong>
-                <p>${text}</p>
-                <small>${new Date().toLocaleTimeString()}</small>
-            `;
-            chatContainer.appendChild(messageDiv);
-            
-        } catch (error) {
-            console.error("Error creating agent message:", error);
-            // Fallback: just display the message directly
-            addMessageToConversation(text, true, false);
+        } else {
+            // Instead of displaying as agent, send to user message area if we're sure it's a user message
+            logConnection('INFO', `Redirecting misclassified message to user display instead: "${text.substring(0, 30)}..."`);
+            displayUserTranscription(text, null, true);
         }
     }
     
-    // Helper function to force scroll to bottom with multiple attempts
+    // Helper function to force scroll to bottom with enhanced reliability and performance
     function forceScrollToBottom(container) {
         if (!container) return;
         
-        // Immediate scroll attempt
-        container.scrollTop = container.scrollHeight;
+        // Set flag to prevent scroll handling during programmatic scrolling
+        isProcessingScroll = true;
         
-        // Multiple delayed scroll attempts to ensure it works
-        const scrollAttempts = [10, 50, 100, 200, 500];
-        scrollAttempts.forEach(delay => {
-            setTimeout(() => {
-                console.log(`Scrolling to bottom (delay: ${delay}ms)`);
-                container.scrollTop = container.scrollHeight;
-            }, delay);
+        // Use requestAnimationFrame for smoother scrolling that's aligned with the render cycle
+        requestAnimationFrame(() => {
+            // First, try without smooth scrolling for instant positioning
+            container.style.scrollBehavior = 'auto';
+            container.scrollTop = container.scrollHeight;
+            
+            // Multiple scheduled attempts with increasing delays for reliability
+            const scrollAttempts = [10, 50, 150, 300];
+            scrollAttempts.forEach(delay => {
+                setTimeout(() => {
+                    requestAnimationFrame(() => {
+                        logConnection('DEBUG', `Additional scroll attempt (delay: ${delay}ms)`);
+                        container.scrollTop = container.scrollHeight;
+                        
+                        // On the last attempt, restore smooth scrolling and reset flag
+                        if (delay === scrollAttempts[scrollAttempts.length - 1]) {
+                            container.style.scrollBehavior = 'smooth';
+                            isProcessingScroll = false;
+                        }
+                    });
+                }, delay);
+            });
         });
         
-        // Also set up a MutationObserver to watch for content changes
+        // Set up a more efficient MutationObserver with better performance characteristics
         if (!window.aiMessageObserver) {
             window.aiMessageObserver = new MutationObserver((mutations) => {
-                console.log("Content changed, scrolling to bottom");
-                container.scrollTop = container.scrollHeight;
+                // Process multiple mutations as a single batch
+                if (mutations.length > 0) {
+                    // Only scroll if auto-scroll is enabled
+                    if (autoScrollEnabled) {
+                        requestAnimationFrame(() => {
+                            logConnection('DEBUG', "Content changed, scrolling to bottom");
+                            container.scrollTop = container.scrollHeight;
+                        });
+                    }
+                }
             });
             
-            // Start observing the container for content changes
+            // Use a more selective observation strategy
             window.aiMessageObserver.observe(container, {
-                childList: true,
-                subtree: true,
-                characterData: true
+                childList: true,  // Watch for added/removed children
+                subtree: false,   // Don't observe all descendants, just direct children
+                characterData: false // Don't watch for text changes, just structure
             });
         }
     }
@@ -1709,6 +2602,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('mic-icon-mute').style.display = 'none';
                 document.getElementById('mic-icon-active').style.display = 'none';
                 
+                // Keep text input visible if we were previously connected
                 // No need to change the screens here - keep them as they are
                 break;
                 
@@ -1721,14 +2615,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('mic-icon-mute').style.display = 'inline-block';
                 document.getElementById('mic-icon-active').style.display = 'none';
                 
-                // Show text input with fade-in effect
+                // Always ensure text input is visible
                 if (textInputContainer) {
                     textInputContainer.classList.add('visible');
+                    
+                    // Force visibility with inline style as backup
+                    textInputContainer.style.opacity = '1';
+                    textInputContainer.style.display = 'flex';
                 }
                 
                 // Show conversation screen, hide welcome screen
                 document.getElementById('welcome-screen').style.display = 'none';
                 document.getElementById('conversation-screen').style.display = 'block';
+                
+                // Focus the text input after connecting
+                setTimeout(() => {
+                    const textInput = document.getElementById('text-input');
+                    if (textInput) {
+                        textInput.focus();
+                    }
+                }, 300);
                 break;
                 
             case CONNECTION_STATE.ERROR:
@@ -1769,4 +2675,73 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('conversation-screen').style.display = 'none';
     
     // Removed auto-reconnect functionality per requirements
+    
+    // Function to update interrupt button visibility based on agent speaking state
+    function updateInterruptButtonVisibility() {
+        if (interruptButton) {
+            // Make the interrupt button more reliably visible
+            // Show it when agent is speaking OR when agent messages are present
+            const shouldShowButton = isAgentSpeaking ||
+                                    (conversationHistory.some(msg => msg.isAgent) && isConnected);
+            
+            interruptButton.style.display = shouldShowButton ? 'inline-flex' : 'none';
+            
+            // Make sure it's visible during agent responses
+            if (document.querySelector('.typing-indicator-container')) {
+                interruptButton.style.display = 'inline-flex';
+            }
+            
+            // Set default title for interrupt button
+            interruptButton.setAttribute('title', 'Interrupt agent');
+            
+            // Ensure the button is clickable
+            interruptButton.style.pointerEvents = 'auto';
+            interruptButton.style.cursor = 'pointer';
+        }
+    }
+    
+    // Function to interrupt the agent - simplified to just send a text message
+    async function interruptAgent() {
+        if (!room || !room.localParticipant) return;
+        
+        try {
+            logConnection('INFO', 'Sending interrupt signal to agent');
+            
+            // Send a simple message to stop talking
+            const interruptMessage = "stop talking for now";
+            
+            // Send via text method (preferred method)
+            try {
+                await room.localParticipant.sendText(interruptMessage, {
+                    topic: 'lk.chat',
+                    // Add metadata to mark this as an interrupt command that shouldn't be displayed
+                    attributes: {
+                        'x-interrupt-command': 'true'
+                    }
+                });
+                logConnection('DEBUG', 'Sent interrupt as text message');
+            } catch (err) {
+                // Fallback to data channel if text method fails
+                try {
+                    const data = {
+                        type: 'interrupt',
+                        text: interruptMessage
+                    };
+                    const encodedData = new TextEncoder().encode(JSON.stringify(data));
+                    await room.localParticipant.publishData(encodedData, { reliable: true });
+                    logConnection('DEBUG', 'Sent interrupt as data message');
+                } catch (error) {
+                    logConnection('ERROR', `Failed to send interrupt: ${error.message}`);
+                }
+            }
+            
+            // Update UI
+            showFlashMessage('Interrupted agent', 'info');
+        } catch (error) {
+            logConnection('ERROR', `Failed to interrupt agent: ${error.message}`);
+            showFlashMessage('Failed to interrupt agent', 'error');
+        }
+    }
+    
+    // Audio control is now handled by the agent side
 });
