@@ -146,7 +146,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Connect button handler - now used directly from welcome screen
     connectButton.addEventListener('click', async () => {
         // Show connecting status
-        micStatus.textContent = 'Connecting...';
         updateStatus(CONNECTION_STATE.CONNECTING);
         logConnection('INFO', "User initiated connection via connect button");
         
@@ -216,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             updateStatus(CONNECTION_STATE.DISCONNECTED);
             showFlashMessage('Failed to connect: ' + error.message, 'error');
-            micStatus.textContent = 'Click to connect';
+            // Status text removed
             
             // Hide connecting indicator on error
             if (connectingIndicator) {
@@ -239,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
     micButton.addEventListener('click', async () => {
         if (!isConnected) {
             // Show connecting status
-            micStatus.textContent = 'Connecting...';
+            // Status text removed
             updateStatus(CONNECTION_STATE.CONNECTING);
             logConnection('INFO', "User initiated connection via mic button");
             
@@ -644,6 +643,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateTtsToggleDisplay() {
         const ttsToggleBtn = document.getElementById('tts-toggle-btn');
         const ttsIcon = document.getElementById('tts-icon');
+        const ttsLabel = document.getElementById('tts-label');
         
         if (ttsToggleBtn && ttsIcon) {
             // Update icon
@@ -651,6 +651,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update button class
             ttsToggleBtn.classList.toggle('muted', isTtsMuted);
+            
+            // Update label to show Mute/Unmute
+            if (ttsLabel) {
+                ttsLabel.textContent = isTtsMuted ? 'Unmute' : 'Mute';
+            }
             
             // Apply mute state to any existing audio elements
             applyTtsMuteState();
@@ -1155,16 +1160,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
     
-    // Create a message element
+    // Create a message element - simplified ChatGPT style
     function createMessageElement(message, index) {
         const messageContainer = document.createElement('div');
         messageContainer.className = `message ${message.isAgent ? 'agent-message' : 'user-message'}`;
         messageContainer.dataset.index = index;
-        
-        // Create avatar
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = message.isAgent ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
         
         // Create message bubble
         const bubble = document.createElement('div');
@@ -1181,10 +1181,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const date = new Date(message.timestamp);
         timeEl.textContent = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
-        // Assemble message
+        // Assemble message (no avatar)
         bubble.appendChild(textEl);
         bubble.appendChild(timeEl);
-        messageContainer.appendChild(avatar);
         messageContainer.appendChild(bubble);
         
         return messageContainer;
@@ -1203,15 +1202,10 @@ document.addEventListener('DOMContentLoaded', function() {
         indicator.className = 'message agent-message typing-indicator-container';
         indicator.id = 'typing-indicator';
         
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = '<i class="fas fa-robot"></i>';
-        
         const typing = document.createElement('div');
         typing.className = 'typing-indicator';
         typing.innerHTML = '<span></span><span></span><span></span>';
         
-        indicator.appendChild(avatar);
         indicator.appendChild(typing);
         
         chatHistory.appendChild(indicator);
@@ -2239,7 +2233,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mic-icon-mute').style.display = 'none';
             document.getElementById('mic-icon-active').style.display = 'inline-block';
             
-            micStatus.textContent = 'Microphone is active';
+            // Status text removed
             isRecording = true;
             
             showFlashMessage('Microphone activated. Speak now...', 'info');
@@ -2264,7 +2258,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mic-icon-mute').style.display = 'inline-block';
             document.getElementById('mic-icon-active').style.display = 'none';
             
-            micStatus.textContent = 'Microphone is on mute';
+            // Status text removed
             isRecording = false;
             
             showFlashMessage('Microphone deactivated.', 'info');
@@ -2447,6 +2441,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayAgentMessage(text, isTranscription, isPartial = false) {
         // Safety check
         if (!text || text.trim() === '') return;
+        
+        // Make sure interrupt button is visible when agent is responding
+        if (interruptButton) {
+            interruptButton.style.display = 'inline-flex';
+            interruptButton.classList.add('visible');
+        }
         
         // SAFETY CHECK: Verify this doesn't look like a user message before displaying as agent
         let shouldDisplay = true;
@@ -2632,7 +2632,6 @@ document.addEventListener('DOMContentLoaded', function() {
             case CONNECTION_STATE.DISCONNECTED:
                 micButton.classList.remove('connected');
                 micButton.classList.remove('active');
-                micStatus.textContent = 'Connect';
                 
                 // Show connect icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'inline-block';
@@ -2662,7 +2661,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
                 
             case CONNECTION_STATE.CONNECTING:
-                micStatus.textContent = 'Connecting...';
+                // Status text removed
                 
                 // Show connect icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'inline-block';
@@ -2690,7 +2689,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             case CONNECTION_STATE.CONNECTED:
                 micButton.classList.add('connected');
-                micStatus.textContent = 'Microphone is on mute';
+                // Status text removed
                 
                 // Show mute icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'none';
@@ -2722,7 +2721,7 @@ document.addEventListener('DOMContentLoaded', function() {
             case CONNECTION_STATE.ERROR:
                 micButton.classList.remove('connected');
                 micButton.classList.remove('active');
-                micStatus.textContent = 'Connection failed';
+                // Status text removed
                 
                 // Show connect icon and hide others
                 document.getElementById('mic-icon-connect').style.display = 'inline-block';
@@ -2761,20 +2760,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to update interrupt button visibility based on agent speaking state
     function updateInterruptButtonVisibility() {
         if (interruptButton) {
-            // Make the interrupt button more reliably visible
-            // Show it when agent is speaking OR when agent messages are present
-            const shouldShowButton = isAgentSpeaking ||
-                                    (conversationHistory.some(msg => msg.isAgent) && isConnected);
+            // ONLY show button when agent is actively speaking
+            const shouldShowButton = isAgentSpeaking;
             
-            interruptButton.style.display = shouldShowButton ? 'inline-flex' : 'none';
+            // Use CSS classes for better animation and styling
+            if (shouldShowButton) {
+                interruptButton.style.display = 'inline-flex';
+                interruptButton.classList.add('visible');
+            } else {
+                interruptButton.classList.remove('visible');
+                // Don't hide immediately to allow for transition
+                setTimeout(() => {
+                    if (!isAgentSpeaking) {
+                        interruptButton.style.display = 'none';
+                    }
+                }, 300);
+            }
             
-            // Make sure it's visible during agent responses
+            // Make sure it's visible when typing indicator is present
             if (document.querySelector('.typing-indicator-container')) {
                 interruptButton.style.display = 'inline-flex';
+                interruptButton.classList.add('visible');
             }
             
             // Set default title for interrupt button
-            interruptButton.setAttribute('title', 'Interrupt agent');
+            interruptButton.setAttribute('title', 'Stop response');
             
             // Ensure the button is clickable
             interruptButton.style.pointerEvents = 'auto';

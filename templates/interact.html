@@ -69,6 +69,12 @@
                             <div class="unread-badge">0</div>
                         </button>
                         
+                        <!-- Stop button moved to chat area with improved styling -->
+                        <button id="interrupt-button" class="control-button stop-button" title="Stop Response" style="display: none; position: absolute; top: 15px; right: 15px; z-index: 100;">
+                            <i class="fas fa-stop-circle"></i>
+                            <span class="button-label">Stop</span>
+                        </button>
+                        
                         <!-- Hidden original chat container kept for compatibility -->
                         <div id="chat-container" class="chat-container" style="display: none;">
                             <!-- Original messages will be stored here but not displayed -->
@@ -77,10 +83,6 @@
                     
                     <div class="voice-button-container" style="display: none;">
                         <div class="voice-controls">
-                            <button id="interrupt-button" class="control-button" title="Interrupt Agent" style="display: none;">
-                                <i class="fas fa-hand-paper"></i>
-                                <span class="button-label">Stop</span>
-                            </button>
                             <button id="mic-button" class="voice-button">
                                 <!-- Default disconnected state icon -->
                                 <i class="fas fa-arrow-right" id="mic-icon-connect"></i>
@@ -101,9 +103,7 @@
                                 </div>
                             </button>
                         </div>
-                        <div class="voice-status">
-                            <span id="mic-status">Start</span>
-                        </div>
+                        <!-- Voice status removed as requested -->
                     </div>
                     
                     <div class="text-input-container" style="display: none;">
@@ -118,7 +118,7 @@
                         <div class="tts-toggle">
                             <button id="tts-toggle-btn" class="control-toggle" title="Toggle Text-to-Speech">
                                 <i class="fas fa-volume-up" id="tts-icon"></i>
-                                <span class="toggle-label">TTS</span>
+                                <span class="toggle-label" id="tts-label">Mute</span>
                             </button>
                         </div>
                         <div class="language-dropdown">

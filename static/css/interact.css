@@ -216,6 +216,18 @@ body, html {
     border-top: 1px solid var(--glass-border);
 }
 
+/* Consistent gray text for bottom control buttons */
+.bottom-controls .control-toggle,
+.bottom-controls .lang-btn {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.bottom-controls .toggle-label {
+    color: #666;
+    font-weight: normal;
+}
+
 /* TTS Toggle */
 .tts-toggle {
     margin-right: 10px;
@@ -353,12 +365,13 @@ body, html {
 }
 
 .glass-card-content {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-  overflow: hidden;
-  position: relative;
+   padding: 0; /* Remove padding */
+   display: flex;
+   flex-direction: column;
+   flex-grow: 1;
+   overflow: hidden;
+   position: relative;
+   background-color: white; /* Clean white background like ChatGPT */
 }
 
 /* Chat Container - Hidden but kept for functionality */
@@ -470,28 +483,28 @@ body, html {
     overflow: hidden; /* Prevent overflow issues */
 }
 
-/* Chat history container */
+/* Chat history container - cleaned up ChatGPT style */
 .chat-history {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     height: 100%;
-    max-height: calc(var(--card-height) - 170px); /* Increased height for more content */
+    max-height: calc(var(--card-height) - 170px);
     overflow-y: auto;
-    padding: 20px;
+    padding: 0; /* Remove padding */
     scroll-behavior: smooth;
-    background-color: rgba(255, 193, 7, 0.05);
-    border-radius: 16px;
-    border: 1px solid rgba(255, 193, 7, 0.1);
+    background-color: transparent; /* Remove yellow background */
+    border-radius: 0;
+    border: none; /* Remove border */
     margin-bottom: 1.5rem;
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.3) transparent; /* Increased contrast for scrollbar */
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
     position: relative;
-    width: 100%; /* Ensure full width */
-    box-shadow: inset 0 -5px 10px -5px rgba(0, 0, 0, 0.05); /* Subtle shadow at bottom to indicate scrollable content */
-    overscroll-behavior: contain; /* Prevent scroll chaining */
-    flex: 1; /* Take up available space */
-    min-height: 200px; /* Ensure minimum height */
+    width: 100%;
+    box-shadow: none; /* Remove shadow */
+    overscroll-behavior: contain;
+    flex: 1;
+    min-height: 200px;
 }
 
 /* Scroll position indicator for long conversations */
@@ -534,21 +547,28 @@ body, html {
     background-color: rgba(0, 0, 0, 0.5); /* Darker on hover for better UX */
 }
 
-/* Message styling */
+/* Message styling - ChatGPT flat style with no bubbles */
 .message {
     display: flex;
     margin-bottom: 16px;
-    max-width: 90%; /* Increased from 80% for better readability */
+    max-width: 90%;
     animation: fadeIn 0.3s ease-out;
+    padding: 8px 0;
 }
 
 .user-message {
     margin-left: auto;
-    flex-direction: row-reverse;
+    background-color: rgba(240, 242, 245, 0.7); /* Darker background for user messages */
+    width: 100%;
+    justify-content: flex-end;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .agent-message {
     margin-right: auto;
+    width: 100%;
+    background-color: white; /* Pure white background for AI messages */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* New message highlight animation */
@@ -584,51 +604,35 @@ body, html {
 }
 
 .message-bubble {
-    padding: 12px 16px;
-    border-radius: 18px;
+    padding: 8px 16px;
     position: relative;
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
+    max-width: 90%;
 }
 
 .user-message .message-bubble {
-    background-color: #007bff;
-    color: white;
-    border-bottom-right-radius: 4px;
+    color: #333;
+    text-align: right;
+    margin-left: auto;
 }
 
 .agent-message .message-bubble {
-    background-color: #f1f0f0;
     color: #333;
-    border-bottom-left-radius: 4px;
+    margin-right: auto;
 }
 
 .message-time {
     font-size: 0.7rem;
-    opacity: 0.7;
-    margin-top: 5px;
+    opacity: 0.6;
+    margin-top: 3px;
     text-align: right;
 }
 
+/* Remove message avatar completely */
 .message-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    margin: 0 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.user-message .message-avatar {
-    background-color: #d1e7ff;
-    color: #007bff;
-}
-
-.agent-message .message-avatar {
-    background-color: #e6e6e6;
-    color: #666;
+    display: none;
 }
 
 /* Enhanced scroll to bottom button */
@@ -758,23 +762,25 @@ body, html {
     z-index: 10;
 }
 
-/* Typing indicator */
+/* Typing indicator - simplified to match ChatGPT style */
 .typing-indicator-container {
     margin-bottom: 16px;
     margin-right: auto;
+    margin-left: 10px;
     display: flex;
     align-items: center;
+    max-width: 85%;
 }
 
 .typing-indicator {
     display: flex;
     padding: 12px 16px;
-    background-color: #f1f0f0;
-    border-radius: 18px;
+    background-color: #f0f2f5;
+    border-radius: 15px;
     border-bottom-left-radius: 4px;
     align-items: center;
     justify-content: center;
-    margin-left: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .typing-indicator span {
@@ -1065,13 +1071,45 @@ body, html {
   color: white;
 }
 
-#interrupt-button {
-  background-color: #dc3545;
+/* Stop button styling - ChatGPT style stop button */
+#interrupt-button.stop-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: #ff5252;
+  color: white;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  z-index: 100;
+  opacity: 0;
+  transition: all 0.2s ease-in-out;
+}
+
+#interrupt-button.stop-button.visible {
+  opacity: 1;
+}
+
+#interrupt-button.stop-button i {
+  margin: 0;
+  font-size: 1.5rem;
   color: white;
 }
 
-#interrupt-button:hover {
-  background-color: #c82333;
+#interrupt-button.stop-button .button-label {
+  display: none;
+}
+
+#interrupt-button.stop-button:hover {
+  background-color: #ff3333;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
 }
 
 #interrupt-button.interrupt-active {
