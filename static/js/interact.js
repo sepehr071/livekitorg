@@ -1142,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return messageContainer;
     }
     
-    // Show typing indicator
+    // Show typing indicator (simplified with no animation)
     function showTypingIndicator() {
         const chatHistory = document.getElementById('chat-history');
         if (!chatHistory) return;
@@ -1150,19 +1150,25 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove any existing indicator
         removeTypingIndicator();
         
-        // Create typing indicator
+        // Create typing indicator (simpler version without animation)
         const indicator = document.createElement('div');
         indicator.className = 'message agent-message typing-indicator-container';
         indicator.id = 'typing-indicator';
         
+        // Simple text-based indicator instead of animation
         const typing = document.createElement('div');
         typing.className = 'typing-indicator';
-        typing.innerHTML = '<span></span><span></span><span></span>';
+        typing.textContent = 'AI is typing...';
         
         indicator.appendChild(typing);
         
         chatHistory.appendChild(indicator);
         scrollToBottom();
+        
+        // Make sure stop button is shown when typing indicator appears
+        if (interruptButton) {
+            interruptButton.style.display = 'inline-flex';
+        }
     }
     
     // Remove typing indicator
@@ -1170,6 +1176,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const indicator = document.getElementById('typing-indicator');
         if (indicator) {
             indicator.remove();
+        }
+        
+        // Hide stop button when typing indicator is removed
+        if (interruptButton) {
+            interruptButton.style.display = 'none';
         }
     }
     
@@ -2409,7 +2420,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Make sure interrupt button is visible when agent is responding
         if (interruptButton) {
             interruptButton.style.display = 'inline-flex';
-            interruptButton.classList.add('visible');
         }
         
         // SAFETY CHECK: Verify this doesn't look like a user message before displaying as agent
@@ -2727,20 +2737,17 @@ document.addEventListener('DOMContentLoaded', function() {
             // ONLY show button when agent is actively speaking
             const shouldShowButton = isAgentSpeaking;
             
-            // Use CSS classes for better animation and styling
+            // Show/hide using display property directly instead of CSS classes
             if (shouldShowButton) {
                 interruptButton.style.display = 'inline-flex';
-                interruptButton.classList.add('visible');
             } else {
-                interruptButton.classList.remove('visible');
-                // Hide immediately when agent stops speaking
+                // Hide completely when agent stops speaking
                 interruptButton.style.display = 'none';
             }
             
             // Make sure it's visible when typing indicator is present
             if (document.querySelector('.typing-indicator-container')) {
                 interruptButton.style.display = 'inline-flex';
-                interruptButton.classList.add('visible');
             }
             
             // Set default title for interrupt button
