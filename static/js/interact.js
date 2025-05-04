@@ -1149,9 +1149,11 @@ document.addEventListener('DOMContentLoaded', function() {
         chatHistory.appendChild(indicator);
         scrollToBottom();
         
-        // Make sure stop button is shown when typing indicator appears
+        // Make sure stop button is shown when typing indicator appears (AI message is being generated)
         if (interruptButton) {
             interruptButton.style.display = 'inline-flex';
+            // Set a data attribute to track that AI is generating a message
+            interruptButton.setAttribute('data-ai-generating', 'true');
         }
     }
     
@@ -1162,9 +1164,11 @@ document.addEventListener('DOMContentLoaded', function() {
             indicator.remove();
         }
         
-        // Hide stop button when typing indicator is removed
+        // Hide stop button when typing indicator is removed (AI message completed)
         if (interruptButton) {
             interruptButton.style.display = 'none';
+            // Remove the data attribute when AI stops generating
+            interruptButton.removeAttribute('data-ai-generating');
         }
     }
     
@@ -2521,9 +2525,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // For final messages, add as a new message
                     addToConversationHistory(text, true);
                     
-                    // Make sure interrupt button is hidden for final messages
-                    if (!isTranscription && interruptButton) {
+                    // Make sure interrupt button is hidden for final messages (AI message completed)
+                    if (interruptButton) {
                         interruptButton.style.display = 'none';
+                        // Remove the data attribute when AI stops generating
+                        interruptButton.removeAttribute('data-ai-generating');
                     }
                 }
             } catch (error) {
@@ -2733,14 +2739,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to update interrupt button visibility based on agent speaking state
     function updateInterruptButtonVisibility() {
         if (interruptButton) {
-            // ONLY show button when agent is actively speaking
-            const shouldShowButton = isAgentSpeaking;
+            // Show button when agent is actively speaking OR a message is being generated
+            const aiGenerating = interruptButton.hasAttribute('data-ai-generating');
+            const shouldShowButton = isAgentSpeaking || aiGenerating;
             
             // Show/hide using display property directly instead of CSS classes
             if (shouldShowButton) {
                 interruptButton.style.display = 'inline-flex';
             } else {
-                // Hide completely when agent stops speaking
+                // Hide completely when agent stops speaking and no message is being generated
                 interruptButton.style.display = 'none';
             }
             
@@ -2750,7 +2757,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Set default title for interrupt button
-            interruptButton.setAttribute('title', 'Stop response');
+            interruptButton.setAttribute('title', 'Stop AI');
             
             // Ensure the button is clickable
             interruptButton.style.pointerEvents = 'auto';
