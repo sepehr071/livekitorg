@@ -1169,6 +1169,8 @@ document.addEventListener('DOMContentLoaded', function() {
             interruptButton.style.display = 'none';
             // Remove the data attribute when AI stops generating
             interruptButton.removeAttribute('data-ai-generating');
+            // Ensure the button is really hidden by setting opacity to 0 as well
+            interruptButton.style.opacity = '0';
         }
     }
     
@@ -2530,6 +2532,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         interruptButton.style.display = 'none';
                         // Remove the data attribute when AI stops generating
                         interruptButton.removeAttribute('data-ai-generating');
+                        // Force it to be hidden with opacity as well
+                        interruptButton.style.opacity = '0';
                     }
                 }
             } catch (error) {
@@ -2746,14 +2750,17 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show/hide using display property directly instead of CSS classes
             if (shouldShowButton) {
                 interruptButton.style.display = 'inline-flex';
+                interruptButton.style.opacity = '1';
             } else {
                 // Hide completely when agent stops speaking and no message is being generated
                 interruptButton.style.display = 'none';
+                interruptButton.style.opacity = '0';
             }
             
             // Make sure it's visible when typing indicator is present
             if (document.querySelector('.typing-indicator-container')) {
                 interruptButton.style.display = 'inline-flex';
+                interruptButton.style.opacity = '1';
             }
             
             // Set default title for interrupt button

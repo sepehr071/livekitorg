@@ -679,7 +679,7 @@ body, html {
 
 /* Visible state */
 .scroll-button.visible {
-    opacity: 1; /* 100% opacity */
+    opacity: 1 !important; /* Force 100% opacity */
     transform: translateY(0) scale(1);
     pointer-events: auto;
 }
