@@ -21,6 +21,7 @@
   --voice-btn-connected: #28a745;
   --card-width: 600px;  /* Increased from 450px for better readability */
   --card-height: 650px;
+  --bg-yellow-light: #fffef7; /* New variable for light yellow */
 }
 
 /* Base Styles */
@@ -30,7 +31,7 @@ body, html {
   padding: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow-x: hidden;
-  background: var(--bg-light);
+  background: var(--bg-yellow-light); /* Light yellow background */
   color: var(--text-dark);
 }
 
@@ -42,7 +43,7 @@ body, html {
   justify-content: center;
   position: relative;
   overflow: hidden;
-  background: var(--bg-lighter);
+  background: var(--bg-yellow-light); /* Light yellow background */
   background-image:
     radial-gradient(circle at 10% 20%, rgba(251, 223, 4, 0.3), transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(255, 152, 0, 0.25), transparent 40%),
@@ -132,6 +133,7 @@ body, html {
   height: var(--card-height);
   display: flex;
   flex-direction: column;
+  background-color: rgba(255, 254, 247, 0.85); /* Lighter yellow with transparency */
 }
 
 .glass-card::before {
@@ -205,59 +207,60 @@ body, html {
     gap: 10px;
 }
 
-/* Bottom controls - minimal redesign with better UI and equal width buttons */
+/* Bottom controls - even more minimal design with improved styling */
 .bottom-controls {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 30px; /* Increased spacing between buttons */
-    margin-top: 10px;
-    padding: 12px 20px;
-    border-top: 1px solid rgba(0, 0, 0, 0.05); /* Lighter border */
+    gap: 40px; /* Further increased spacing between buttons */
+    margin-top: 15px;
+    padding: 10px 0px; /* Reduced padding */
+    border-top: 1px solid rgba(0, 0, 0, 0.03); /* Subtle border */
     background-color: transparent;
 }
 
-/* More minimal bottom control buttons with equal width */
+/* More minimal bottom control buttons with better design */
 .bottom-controls .control-toggle,
 .bottom-controls .lang-btn {
-    color: #666;
-    font-size: 0.85rem;
-    padding: 6px 10px;
-    border-radius: 20px; /* Rounded corners */
-    background-color: rgba(0, 0, 0, 0.03); /* Very subtle background */
-    border: none;
+    color: #777;
+    font-size: 0.8rem;
+    padding: 5px 8px;
+    border-radius: 16px; /* Smaller radius for more minimal look */
+    background-color: transparent; /* No background */
+    border: 1px solid rgba(0, 0, 0, 0.05); /* Very subtle border */
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
-    opacity: 0.9;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Subtle shadow */
-    min-width: 80px; /* Set minimum width for equal size */
-    width: 80px; /* Fixed width for all buttons */
+    opacity: 0.85;
+    box-shadow: none; /* No shadow for cleaner look */
+    min-width: 70px; /* Smaller minimum width */
+    width: auto; /* Auto width based on content */
 }
 
 .bottom-controls .control-toggle:hover,
 .bottom-controls .lang-btn:hover {
-    background-color: rgba(0, 0, 0, 0.08);
+    background-color: rgba(0, 0, 0, 0.02); /* Very subtle hover effect */
     opacity: 1;
-    transform: translateY(-1px);
+    transform: none; /* No transform for cleaner look */
+    border-color: rgba(0, 0, 0, 0.08); /* Slightly darker border on hover */
 }
 
 .bottom-controls .toggle-label {
-    color: #666;
+    color: #777;
     font-weight: normal;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
 }
 
 /* TTS Toggle */
 .tts-toggle {
-    margin-right: 10px;
+    margin: 0;
 }
 
 /* Download Toggle */
 .download-toggle {
-    margin-right: 10px;
+    margin: 0;
 }
 
 #download-btn:hover {
@@ -267,17 +270,17 @@ body, html {
 .control-toggle {
     background: none;
     border: none;
-    color: #555;
+    color: #666;
     cursor: pointer;
     padding: 5px 8px;
-    border-radius: 4px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
 .control-toggle:hover {
-    background-color: rgba(251, 223, 4, 0.1);
+    background-color: rgba(251, 223, 4, 0.05);
 }
 
 .control-toggle.active {
@@ -289,7 +292,8 @@ body, html {
 }
 
 .toggle-label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 400;
 }
 
 /* Language dropdown - improved styling */
@@ -300,23 +304,25 @@ body, html {
 
 .lang-btn {
   color: #666;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
+  border-radius: 20px;
+  padding: 5px 8px;
 }
 
 .current-lang {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
 }
 
 .lang-btn:hover {
   color: #333;
-  background-color: rgba(240, 242, 245, 0.9);
+  background-color: rgba(251, 223, 4, 0.05);
 }
 
 .dropdown-content {
@@ -384,13 +390,13 @@ body, html {
 }
 
 .glass-card-content {
-   padding: 1.5rem; /* Maintain padding */
+   padding: 2rem 1rem; /* Reduced horizontal padding, kept vertical padding */
    display: flex;
    flex-direction: column;
    flex-grow: 1;
    overflow: hidden;
    position: relative;
-   background-color: #fffef0; /* Keep very light yellow background */
+   background-color: #fffef0; /* Very light yellow background */
 }
 
 /* Chat Container - Hidden but kept for functionality */
@@ -510,11 +516,11 @@ body, html {
     height: 100%;
     max-height: calc(var(--card-height) - 170px);
     overflow-y: auto;
-    padding: 0; /* Remove padding */
+    padding: 1rem 0.75rem; /* Reduced horizontal padding */
     scroll-behavior: smooth;
-    background-color: transparent; /* Remove yellow background */
+    background-color: transparent;
     border-radius: 0;
-    border: none; /* Remove border */
+    border: none;
     margin-bottom: 1.5rem;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
@@ -627,7 +633,7 @@ body, html {
     color: #333;
     margin-right: auto;
     background: transparent;
-    padding: 8px 0;
+    padding: 10px 0;
     width: 100%;
 }
 
@@ -673,7 +679,7 @@ body, html {
 
 /* Visible state */
 .scroll-button.visible {
-    opacity: 0.8; /* Slightly transparent even when visible */
+    opacity: 1 !important; /* Force 100% opacity */
     transform: translateY(0) scale(1);
     pointer-events: auto;
 }
@@ -699,40 +705,9 @@ body, html {
     }
 }
 
-/* Badge for unread messages */
+/* Badge for unread messages - removed as requested */
 .unread-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background-color: var(--error-color);
-    color: white;
-    font-size: 12px;
-    font-weight: bold;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    opacity: 0;
-    transform: scale(0);
-    transition: all 0.2s ease;
-}
-
-.unread-badge.visible {
-    opacity: 1;
-    transform: scale(1);
-    transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); /* Bouncy effect */
-}
-
-/* Enhanced unread badge for better visibility with more messages */
-.unread-badge:not(:empty) {
-    min-width: 20px; /* Ensure badge is wide enough for double-digit numbers */
-    height: 20px;
-    padding: 0 4px; /* Add padding for multi-digit numbers */
-    font-weight: 700; /* Bolder text */
-    background-color: var(--error-color);
+    display: none; /* Hide badge completely */
 }
 
 /* Virtual scrolling support for large conversations */
@@ -1130,19 +1105,19 @@ body, html {
 
 /* Improve icon sizes */
 #mic-icon-connect {
-  font-size: 28px;
+  font-size: 24px;
   color: #212529;
 }
 
 #mic-icon-mute {
-  font-size: 28px;
+  font-size: 24px;
   color: #212529;
 }
 
 #mic-icon-active {
-  font-size: 30px;
+  font-size: 26px;
   color: #ffffff;
-  animation: icon-pulse 1.5s infinite cubic-bezier(0.455, 0.03, 0.515, 0.955);
+  animation: none; /* Remove animation */
 }
 
 @keyframes icon-pulse {
@@ -1276,21 +1251,22 @@ body, html {
   transform: translateY(-50%) scale(1.05);
 }
 
-/* Flash Messages */
+/* Flash Messages - hidden from UI as requested */
 .flash-messages {
+  display: none; /* Hide all UI notifications */
   position: fixed;
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
   width: 350px;
-  display: flex;
   flex-direction: column;
   align-items: center;
-  pointer-events: none; /* Allow clicking through the container */
+  pointer-events: none;
 }
 
 .flash-message {
+  display: none; /* Ensure messages are never shown */
   margin-bottom: 10px;
   padding: 12px 16px;
   border-radius: 12px;
@@ -1300,50 +1276,32 @@ body, html {
   color: var(--text-dark);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   position: relative;
-  animation: fadeInDown 0.3s ease-out;
-  display: flex;
+  animation: none; /* No animation */
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  pointer-events: auto; /* Make the actual messages clickable */
+  pointer-events: none; /* No interaction */
   font-weight: 500;
+  opacity: 0; /* Fully transparent */
 }
 
+/* Hidden animation keyframes */
 @keyframes fadeInDown {
   from { transform: translateY(-20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(0); opacity: 0; } /* Always invisible */
 }
 
-.flash-message.info {
-  border-left: 4px solid var(--info-color);
-}
-
-.flash-message.success {
-  border-left: 4px solid var(--success-color);
-}
-
-.flash-message.error, .flash-message.danger {
-  border-left: 4px solid var(--error-color);
-}
-
+.flash-message.info,
+.flash-message.success,
+.flash-message.error,
+.flash-message.danger,
 .flash-message.warning {
-  border-left: 4px solid var(--warning-color);
+  display: none; /* Hide all types of messages */
+  opacity: 0;
 }
 
 .flash-close {
-  background: none;
-  border: none;
-  color: var(--text-dark);
-  cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0 4px;
-  margin-left: 8px;
-  opacity: 0.8;
-  transition: opacity 0.2s;
-}
-
-.flash-close:hover {
-  color: var(--text-dark);
+  display: none; /* Hide close button */
 }
 
 
@@ -1368,7 +1326,7 @@ body, html {
   }
   
   .glass-card-content {
-    padding: 1rem;
+    padding: 1.5rem; /* Increased padding for mobile */
     display: flex;
     flex-direction: column;
     height: 100%;

@@ -488,8 +488,8 @@ document.addEventListener('DOMContentLoaded', function() {
             URL.revokeObjectURL(url);
         }, 100);
         
-        // Show confirmation message
-        showFlashMessage('Conversation downloaded successfully', 'success');
+        // Log to console instead of showing UI message
+        console.log('Conversation downloaded successfully');
     }
     
     // Format conversation history as text
@@ -809,17 +809,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update scroll button visibility immediately to avoid flicker
         const scrollButton = document.getElementById('scroll-to-bottom');
-        const unreadBadge = document.querySelector('.unread-badge');
         
         if (scrollButton) {
             scrollButton.classList.remove('visible');
         }
         
-        if (unreadBadge) {
-            unreadBadge.classList.remove('visible');
-            unreadBadge.textContent = '0';
-            unreadMessageCount = 0;
-        }
+        // Reset unread count
+        unreadMessageCount = 0;
         
         // Disable smooth scrolling for very large conversations for performance
         const shouldUseSmooth = smooth && conversationHistory.length < 200;
@@ -893,19 +889,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // We're not at the bottom and auto-scroll is disabled, so increment unread count
             unreadMessageCount++;
             
-            // Update unread badge with better visibility for larger counts
-            if (scrollButton && unreadBadge) {
-                // Use different formatting for larger numbers
-                if (unreadMessageCount > 99) {
-                    unreadBadge.textContent = '99+';
-                } else if (unreadMessageCount > 9) {
-                    unreadBadge.textContent = unreadMessageCount;
-                } else {
-                    unreadBadge.textContent = unreadMessageCount;
-                }
-                
-                unreadBadge.classList.add('visible');
-            }
+            // No longer updating unread badge - it's hidden by CSS
             
             // Make sure scroll button is visible and animated for attention
             if (scrollButton) {
@@ -1165,9 +1149,11 @@ document.addEventListener('DOMContentLoaded', function() {
         chatHistory.appendChild(indicator);
         scrollToBottom();
         
-        // Make sure stop button is shown when typing indicator appears
+        // Make sure stop button is shown when typing indicator appears (AI message is being generated)
         if (interruptButton) {
             interruptButton.style.display = 'inline-flex';
+            // Set a data attribute to track that AI is generating a message
+            interruptButton.setAttribute('data-ai-generating', 'true');
         }
     }
     
@@ -1178,9 +1164,13 @@ document.addEventListener('DOMContentLoaded', function() {
             indicator.remove();
         }
         
-        // Hide stop button when typing indicator is removed
+        // Hide stop button when typing indicator is removed (AI message completed)
         if (interruptButton) {
             interruptButton.style.display = 'none';
+            // Remove the data attribute when AI stops generating
+            interruptButton.removeAttribute('data-ai-generating');
+            // Ensure the button is really hidden by setting opacity to 0 as well
+            interruptButton.style.opacity = '0';
         }
     }
     
@@ -1594,6 +1584,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Remove typing indicator first
                     removeTypingIndicator();
                     
+                    // Make sure interrupt button is hidden when typing is done
+                    if (interruptButton) {
+                        interruptButton.style.display = 'none';
+                    }
+                    
                     // Add message to conversation history (not partial since it's a complete message)
                     displayAgentMessage(message, false, false);
                 } catch (error) {
@@ -1646,6 +1641,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Remove typing indicator first
                     removeTypingIndicator();
+                    
+                    // Make sure interrupt button is hidden when typing is done
+                    if (interruptButton) {
+                        interruptButton.style.display = 'none';
+                    }
                     
                     // Add to conversation history as a complete message (not partial)
                     displayAgentMessage(data.text, false, false);
@@ -2526,6 +2526,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // For final messages, add as a new message
                     addToConversationHistory(text, true);
+                    
+                    // Make sure interrupt button is hidden for final messages (AI message completed)
+                    if (interruptButton) {
+                        interruptButton.style.display = 'none';
+                        // Remove the data attribute when AI stops generating
+                        interruptButton.removeAttribute('data-ai-generating');
+                        // Force it to be hidden with opacity as well
+                        interruptButton.style.opacity = '0';
+                    }
                 }
             } catch (error) {
                 console.error("Error displaying agent message:", error);
@@ -2734,24 +2743,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to update interrupt button visibility based on agent speaking state
     function updateInterruptButtonVisibility() {
         if (interruptButton) {
-            // ONLY show button when agent is actively speaking
-            const shouldShowButton = isAgentSpeaking;
+            // Show button when agent is actively speaking OR a message is being generated
+            const aiGenerating = interruptButton.hasAttribute('data-ai-generating');
+            const shouldShowButton = isAgentSpeaking || aiGenerating;
             
             // Show/hide using display property directly instead of CSS classes
             if (shouldShowButton) {
                 interruptButton.style.display = 'inline-flex';
+                interruptButton.style.opacity = '1';
             } else {
-                // Hide completely when agent stops speaking
+                // Hide completely when agent stops speaking and no message is being generated
                 interruptButton.style.display = 'none';
+                interruptButton.style.opacity = '0';
             }
             
             // Make sure it's visible when typing indicator is present
             if (document.querySelector('.typing-indicator-container')) {
                 interruptButton.style.display = 'inline-flex';
+                interruptButton.style.opacity = '1';
             }
             
             // Set default title for interrupt button
-            interruptButton.setAttribute('title', 'Stop response');
+            interruptButton.setAttribute('title', 'Stop AI');
             
             // Ensure the button is clickable
             interruptButton.style.pointerEvents = 'auto';
@@ -2794,11 +2807,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Update UI
-            showFlashMessage('Interrupted agent', 'info');
+            // Log to console instead of showing UI message
+            console.log('Interrupted agent');
         } catch (error) {
             logConnection('ERROR', `Failed to interrupt agent: ${error.message}`);
-            showFlashMessage('Failed to interrupt agent', 'error');
+            console.log('Failed to interrupt agent');
         }
     }
     
