@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Removed isInterruptActive variable as it's no longer needed
     // Removed pendingInterruptMessages array as it's no longer needed
     
+    // Track the last time an agent message was received
+    let lastAgentMessageTimestamp = 0;
+    
     // Initialize lastSpeakerId and lastClassification with null
     let lastSpeakerId = null;
     let lastClassification = null;
@@ -462,45 +465,130 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to download conversation
     function downloadConversation() {
-        // Format conversation history as text
-        const formattedText = formatConversationAsText();
-        
-        // Generate filename with date
-        const date = new Date().toISOString().split('T')[0];
-        const filename = `conversation-${date}.txt`;
-        
-        // Create download link
-        const blob = new Blob([formattedText], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        
-        // Set link properties
-        a.href = url;
-        a.download = filename;
-        
-        // Trigger download
-        document.body.appendChild(a);
-        a.click();
-        
-        // Cleanup
-        setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }, 100);
-        
-        // Log to console instead of showing UI message
-        console.log('Conversation downloaded successfully');
+        try {
+            console.log(`Preparing to download complete conversation (${conversationHistory.length} messages)`);
+            
+            // Force load all messages to ensure we download everything
+            const renderAll = () => {
+                // Make sure all messages are visible, not just recent ones
+                const chatHistory = document.getElementById('chat-history');
+                if (!chatHistory) return;
+                
+                // Stop any ongoing message processing
+                const typingIndicator = document.getElementById('typing-indicator');
+                if (typingIndicator) {
+                    removeTypingIndicator();
+                }
+                
+                // Check if we're using limited rendering
+                const noticeEl = chatHistory.querySelector('.message.system-message');
+                if (noticeEl && noticeEl.textContent.includes('earlier messages are not displayed')) {
+                    console.log("Forcing full conversation rendering for download...");
+                    
+                    // Clear current content - we'll render everything
+                    chatHistory.innerHTML = '';
+                    
+                    // Create a document fragment for better performance
+                    const fragment = document.createDocumentFragment();
+                    
+                    // Render all messages, not just recent ones
+                    conversationHistory.forEach((message, index) => {
+                        const messageEl = createMessageElement(message, index);
+                        fragment.appendChild(messageEl);
+                    });
+                    
+                    // Append all messages at once
+                    chatHistory.appendChild(fragment);
+                    
+                    console.log(`Rendered all ${conversationHistory.length} messages for download`);
+                } else {
+                    console.log("All messages already visible, proceeding with download");
+                }
+            };
+            
+            // Run the render first
+            renderAll();
+            
+            // Then proceed with download after a short delay
+            setTimeout(() => {
+                // Format conversation history as text with improved formatting
+                const formattedText = formatConversationAsText();
+                
+                // Generate filename with date and time for uniqueness
+                const now = new Date();
+                const date = now.toISOString().split('T')[0];
+                const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+                const filename = `carema-conversation-${date}-${time}.txt`;
+                
+                // Create download link
+                const blob = new Blob([formattedText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                
+                // Set link properties
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                
+                // Trigger download
+                document.body.appendChild(a);
+                a.click();
+                
+                console.log(`Download initiated: ${filename} (${formattedText.length} bytes)`);
+                
+                // Cleanup
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            }, 200);
+        } catch (error) {
+            console.error('Download error:', error);
+        }
     }
     
-    // Format conversation history as text
+    // Format conversation history as text with improved formatting
     function formatConversationAsText() {
-        let text = "Conversation History\n";
-        text += "===================\n\n";
+        let text = "Carema Conversation History\n";
+        text += "==========================\n\n";
         
-        conversationHistory.forEach(message => {
-            const prefix = message.isAgent ? "Agent: " : "User: ";
-            text += `${prefix}${message.text}\n\n`;
+        // Add detailed timestamp to the header
+        text += `Date and Time: ${new Date().toLocaleString()}\n`;
+        text += `Total Messages: ${conversationHistory.length}\n\n`;
+        
+        // Handle empty conversation
+        if (!conversationHistory || conversationHistory.length === 0) {
+            text += "No conversation history available.\n";
+            return text;
+        }
+        
+        // Format each message with timestamp and better structure
+        conversationHistory.forEach((message, index) => {
+            try {
+                const sender = message.isAgent ? "Caila" : "User";
+                const timestamp = message.timestamp ?
+                    new Date(message.timestamp).toLocaleString() :
+                    'Unknown time';
+                
+                // Skip partial messages (only for agent messages that have been finalized)
+                if (message.isPartial === true && message.isAgent) {
+                    return;
+                }
+                
+                // Add clear separation between messages
+                text += `----------- Message ${index + 1} -----------\n`;
+                text += `Sender: ${sender}\n`;
+                text += `Time: ${timestamp}\n\n`;
+                text += `${message.text}\n\n`;
+            } catch (error) {
+                // Handle malformed message
+                text += `[Message ${index + 1} - Error displaying content]\n\n`;
+                console.error('Error formatting message:', error, message);
+            }
         });
+        
+        text += "--------------------------------\n";
+        text += "End of Conversation\n";
         
         return text;
     }
@@ -708,14 +796,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const storedHistory = loadFromStorage(STORAGE_KEYS.CONVERSATION_HISTORY);
         if (storedHistory) {
             try {
+                console.log("Found stored conversation history, attempting to load");
+                
                 // Handle different formats of stored history
                 if (typeof storedHistory === 'object' && storedHistory !== null) {
+                    console.log(`Loading object history with ${storedHistory.length || 0} messages`);
                     conversationHistory = storedHistory;
                 } else if (typeof storedHistory === 'string') {
+                    console.log(`Loading string history (${storedHistory.length} chars)`);
                     conversationHistory = JSON.parse(storedHistory);
                 } else {
                     throw new Error('Invalid history format');
                 }
+                
+                console.log(`Successfully loaded ${conversationHistory.length} messages from storage`);
                 
                 // Check if we need to limit the stored history size
                 if (conversationHistory.length > 500) {
@@ -935,8 +1029,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         saveHistoryTimeout = setTimeout(() => {
-            saveToStorage(STORAGE_KEYS.CONVERSATION_HISTORY, JSON.stringify(conversationHistory));
-            logConnection('DEBUG', 'Conversation history saved to storage');
+            try {
+                const historyJSON = JSON.stringify(conversationHistory);
+                saveToStorage(STORAGE_KEYS.CONVERSATION_HISTORY, historyJSON);
+                console.log(`Conversation history saved to storage (${conversationHistory.length} messages, ${historyJSON.length} bytes)`);
+            } catch (error) {
+                console.error('Error saving conversation history:', error);
+                
+                // Try saving a truncated version if stringify failed
+                try {
+                    if (conversationHistory.length > 100) {
+                        const truncatedHistory = conversationHistory.slice(-100);
+                        saveToStorage(STORAGE_KEYS.CONVERSATION_HISTORY, JSON.stringify(truncatedHistory));
+                        console.log('Saved truncated conversation history (last 100 messages)');
+                    }
+                } catch (fallbackError) {
+                    console.error('Even truncated history save failed:', fallbackError);
+                }
+            }
         }, 1000); // Save after 1 second of inactivity
     }
     
@@ -1154,6 +1264,9 @@ document.addEventListener('DOMContentLoaded', function() {
             interruptButton.style.display = 'inline-flex';
             // Set a data attribute to track that AI is generating a message
             interruptButton.setAttribute('data-ai-generating', 'true');
+            
+            // Explicitly update visibility
+            updateInterruptButtonVisibility();
         }
     }
     
@@ -1169,8 +1282,8 @@ document.addEventListener('DOMContentLoaded', function() {
             interruptButton.style.display = 'none';
             // Remove the data attribute when AI stops generating
             interruptButton.removeAttribute('data-ai-generating');
-            // Ensure the button is really hidden by setting opacity to 0 as well
-            interruptButton.style.opacity = '0';
+            // Update visibility
+            updateInterruptButtonVisibility();
         }
     }
     
@@ -1938,6 +2051,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     audioElement.addEventListener('play', () => {
                         isAgentSpeaking = true;
                         updateInterruptButtonVisibility();
+                        
+                        // Safety timeout - automatically reset speaking state after 10 seconds
+                        // This handles cases where the 'ended' or 'pause' events don't fire correctly
+                        setTimeout(() => {
+                            console.log("Safety timeout checking agent speaking state");
+                            // Only reset if we haven't received any recent agent messages
+                            const timeSinceLastAgentMessage = Date.now() - lastAgentMessageTimestamp;
+                            if (timeSinceLastAgentMessage > 5000) {
+                                console.log("No recent agent activity - resetting speaking state");
+                                isAgentSpeaking = false;
+                                updateInterruptButtonVisibility();
+                            }
+                        }, 10000);
                     });
                 }
             }
@@ -2417,6 +2543,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Safety check
         if (!text || text.trim() === '') return;
         
+        // Update the last agent message timestamp
+        lastAgentMessageTimestamp = Date.now();
+        
         // Make sure interrupt button is visible when agent is responding
         if (interruptButton) {
             interruptButton.style.display = 'inline-flex';
@@ -2529,11 +2658,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Make sure interrupt button is hidden for final messages (AI message completed)
                     if (interruptButton) {
-                        interruptButton.style.display = 'none';
                         // Remove the data attribute when AI stops generating
                         interruptButton.removeAttribute('data-ai-generating');
-                        // Force it to be hidden with opacity as well
-                        interruptButton.style.opacity = '0';
+                        // Update visibility state through the dedicated function
+                        updateInterruptButtonVisibility();
                     }
                 }
             } catch (error) {
@@ -2741,26 +2869,98 @@ document.addEventListener('DOMContentLoaded', function() {
     // Removed auto-reconnect functionality per requirements
     
     // Function to update interrupt button visibility based on agent speaking state
+    // Function to set up enhanced agent audio tracking
+    function setupAgentAudioTracking(audioElement) {
+        console.log("Setting up enhanced agent audio tracking");
+        
+        // Set up ended event to know when agent stops speaking
+        audioElement.onended = () => {
+            console.log("Agent audio ended");
+            isAgentSpeaking = false;
+            updateInterruptButtonVisibility();
+        };
+        
+        // Monitor playing state to detect when agent stops speaking
+        audioElement.addEventListener('pause', () => {
+            console.log("Agent audio paused");
+            isAgentSpeaking = false;
+            updateInterruptButtonVisibility();
+        });
+        
+        // Monitor playing state to detect when agent starts speaking
+        audioElement.addEventListener('play', () => {
+            console.log("Agent audio started playing");
+            isAgentSpeaking = true;
+            updateInterruptButtonVisibility();
+        });
+        
+        // Additional safeguard - check audio playing state periodically
+        const audioCheckInterval = setInterval(() => {
+            const wasPlaying = isAgentSpeaking;
+            const nowPlaying = !audioElement.paused &&
+                               !audioElement.ended &&
+                               audioElement.currentTime > 0;
+            
+            if (wasPlaying !== nowPlaying) {
+                console.log(`Agent speaking state changed from ${wasPlaying} to ${nowPlaying} (detected by interval check)`);
+                isAgentSpeaking = nowPlaying;
+                updateInterruptButtonVisibility();
+            }
+            
+            // Force reset isAgentSpeaking to false periodically if no active speakers
+            // This is a failsafe in case event handlers don't fire correctly
+            if (isAgentSpeaking && (!room || !room.activeSpeakers || room.activeSpeakers.length === 0)) {
+                console.log("No active speakers detected but isAgentSpeaking=true - forcing reset");
+                isAgentSpeaking = false;
+                updateInterruptButtonVisibility();
+            }
+            
+            // Clear interval if audio element is disconnected
+            if (!audioElement.isConnected) {
+                console.log("Audio element disconnected, clearing check interval");
+                clearInterval(audioCheckInterval);
+            }
+        }, 1000);
+    }
+    
     function updateInterruptButtonVisibility() {
         if (interruptButton) {
-            // Show button when agent is actively speaking OR a message is being generated
-            const aiGenerating = interruptButton.hasAttribute('data-ai-generating');
-            const shouldShowButton = isAgentSpeaking || aiGenerating;
+            // Calculate time since last agent message
+            const timeSinceLastAgentMessage = Date.now() - lastAgentMessageTimestamp;
+            const recentAgentMessage = timeSinceLastAgentMessage < 1000; // Less than 1 second ago
             
-            // Show/hide using display property directly instead of CSS classes
+            // Show button when agent is actively speaking OR a message is being generated OR a recent agent message
+            const aiGenerating = interruptButton.hasAttribute('data-ai-generating');
+            const typingIndicatorVisible = !!document.querySelector('.typing-indicator-container');
+            const shouldShowButton = isAgentSpeaking || aiGenerating || typingIndicatorVisible || recentAgentMessage;
+            
+            // Only log visibility changes, not constant updates
+            const currentlyVisible = interruptButton.style.display === 'inline-flex';
+            if (currentlyVisible !== shouldShowButton) {
+                console.log(`Stop button visibility changing to: ${shouldShowButton ? 'visible' : 'hidden'}`);
+                
+                if (DEBUG_MODE) {
+                    console.log(`Factors: speaking=${isAgentSpeaking}, generating=${aiGenerating}, typing=${typingIndicatorVisible}, recent=${recentAgentMessage}`);
+                }
+            }
+            
+            // Show/hide using multiple CSS properties for better cross-browser compatibility
             if (shouldShowButton) {
                 interruptButton.style.display = 'inline-flex';
                 interruptButton.style.opacity = '1';
+                interruptButton.style.visibility = 'visible';
             } else {
                 // Hide completely when agent stops speaking and no message is being generated
                 interruptButton.style.display = 'none';
                 interruptButton.style.opacity = '0';
+                interruptButton.style.visibility = 'hidden';
             }
             
-            // Make sure it's visible when typing indicator is present
+            // Double-check for typing indicator (failsafe)
             if (document.querySelector('.typing-indicator-container')) {
                 interruptButton.style.display = 'inline-flex';
                 interruptButton.style.opacity = '1';
+                interruptButton.style.visibility = 'visible';
             }
             
             // Set default title for interrupt button
@@ -2769,6 +2969,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Ensure the button is clickable
             interruptButton.style.pointerEvents = 'auto';
             interruptButton.style.cursor = 'pointer';
+        } else {
+            console.log("Interrupt button not found in DOM");
         }
     }
     
@@ -2816,4 +3018,101 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Audio control is now handled by the agent side
+    
+    // Set up a periodic check for button visibility based on agent message timing
+    setInterval(() => {
+        // Only check if we have an interrupt button
+        if (interruptButton) {
+            const timeSinceLastAgentMessage = Date.now() - lastAgentMessageTimestamp;
+            
+            // If it's been more than 1 second since the last agent message and the button is visible,
+            // update the button visibility
+            if (timeSinceLastAgentMessage > 1000 &&
+                interruptButton.style.display === 'inline-flex') {
+                updateInterruptButtonVisibility();
+            }
+            
+            // Additional safety check - force reset isAgentSpeaking after 3 seconds of no activity
+            if (isAgentSpeaking && timeSinceLastAgentMessage > 3000) {
+                if (DEBUG_MODE) {
+                    console.log("Force resetting isAgentSpeaking after 3 seconds of no activity");
+                }
+                isAgentSpeaking = false;
+                updateInterruptButtonVisibility();
+            }
+        }
+    }, 500); // Check every 500ms
+    
+    // Track consistent audio activity across multiple checks to prevent flicker
+    let consecutiveAudioDetections = 0;
+    let consecutiveSilenceDetections = 0;
+    const DETECTION_THRESHOLD = 2; // Number of consecutive checks before changing state
+    
+    // Periodically check for genuine audio activity from agent
+    setInterval(() => {
+        // Only check for audio if we have active speakers (optimization)
+        const hasActiveSpeakers = room && room.activeSpeakers && room.activeSpeakers.length > 0;
+        
+        // Skip check if no active speakers and button is already hidden
+        if (!hasActiveSpeakers && !isAgentSpeaking &&
+            interruptButton && interruptButton.style.display === 'none') {
+            consecutiveAudioDetections = 0; // Reset counter
+            return;
+        }
+        
+        // Find all audio elements
+        const audioElements = document.querySelectorAll('audio');
+        let genuinelyPlaying = false;
+        
+        if (audioElements.length > 0) {
+            for (const audio of audioElements) {
+                // More strict check for actual audio playback:
+                // 1. Must not be paused or ended
+                // 2. Must have current time > 0 (actually playing, not just initialized)
+                // 3. Must not be muted
+                // 4. Should have some volume
+                if (!audio.paused &&
+                    !audio.ended &&
+                    audio.currentTime > 0 &&
+                    !audio.muted &&
+                    audio.volume > 0) {
+                    
+                    // If this is an agent's audio element (best guess based on source)
+                    if (room && room.activeSpeakers && room.activeSpeakers.some(
+                        speaker => speaker.identity && speaker.identity.startsWith('agent')
+                    )) {
+                        genuinelyPlaying = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Use a state machine approach to prevent flickering
+        if (genuinelyPlaying) {
+            consecutiveAudioDetections++;
+            consecutiveSilenceDetections = 0;
+            
+            // Only change state after multiple consistent detections
+            if (!isAgentSpeaking && consecutiveAudioDetections >= DETECTION_THRESHOLD) {
+                if (DEBUG_MODE) {
+                    console.log(`Agent audio detected consistently (${consecutiveAudioDetections} times) - showing button`);
+                }
+                isAgentSpeaking = true;
+                updateInterruptButtonVisibility();
+            }
+        } else {
+            consecutiveSilenceDetections++;
+            consecutiveAudioDetections = 0;
+            
+            // Only change state after multiple consistent silence detections
+            if (isAgentSpeaking && consecutiveSilenceDetections >= DETECTION_THRESHOLD) {
+                if (DEBUG_MODE) {
+                    console.log(`No agent audio detected consistently (${consecutiveSilenceDetections} times) - hiding button`);
+                }
+                isAgentSpeaking = false;
+                updateInterruptButtonVisibility();
+            }
+        }
+    }, 500); // Check every 500ms for more responsive UI
 });
